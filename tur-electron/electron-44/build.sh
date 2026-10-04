@@ -187,6 +187,7 @@ target_rpath = \"$TERMUX_PREFIX/lib\"
 target_sysroot = \"$_target_sysroot\"
 custom_toolchain = \"//build/toolchain/linux/unbundle:default\"
 custom_toolchain_clang_base_path = \"$TERMUX_STANDALONE_TOOLCHAIN\"
+# v44 (chromium 152): host clang is 23; NDK custom pin kept at 18 until CI gn gen confirms NDK major on ubuntu-latest.
 custom_toolchain_clang_version = "18"
 host_toolchain = \"$TERMUX_PKG_CACHEDIR/custom-toolchain:host\"
 v8_snapshot_toolchain = \"$TERMUX_PKG_CACHEDIR/custom-toolchain:$_v8_toolchain_name\"
