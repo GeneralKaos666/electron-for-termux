@@ -1,6 +1,6 @@
 --- a/ui/gtk/gtk_compat.cc
 +++ b/ui/gtk/gtk_compat.cc
-@@ -62,22 +62,38 @@
+@@ -74,6 +74,10 @@
  }
  
  void* GetLibGio() {
@@ -12,6 +12,21 @@
    return libgio;
  }
  
+@@ -79,6 +83,10 @@
+ }
+ 
+ void* GetLibGdkPixbuf() {
++#ifdef __TERMUX__
++  static void* libgdk_pixbuf = DlOpen("libgdk_pixbuf-2.0.so");
++#else
+   static void* libgdk_pixbuf = DlOpen("libgdk_pixbuf-2.0.so.0");
++#endif
+   return libgdk_pixbuf;
+ }
+ 
+@@ -84,6 +92,10 @@
+ }
+ 
  void* GetLibGdk3() {
 +#ifdef __TERMUX__
 +  static void* libgdk3 = DlOpen("libgdk-3.so");
@@ -19,6 +34,9 @@
    static void* libgdk3 = DlOpen("libgdk-3.so.0");
 +#endif
    return libgdk3;
+ }
+ 
+@@ -89,6 +101,10 @@
  }
  
  void* GetLibGtk3(bool check = true) {
@@ -30,6 +48,9 @@
    return libgtk3;
  }
  
+@@ -94,6 +110,10 @@
+ }
+ 
  void* GetLibGtk4(bool check = true) {
 +#ifdef __TERMUX__
 +  static void* libgtk4 = DlOpen("libgtk-4.so", check);
@@ -38,16 +59,3 @@
 +#endif
    return libgtk4;
  }
- 
-@@ -124,7 +140,11 @@
- }  // namespace
- 
- void* GetLibGdkPixbuf() {
-+#ifdef __TERMUX__
-+  static void* libgdk_pixbuf = DlOpen("libgdk_pixbuf-2.0.so");
-+#else
-   static void* libgdk_pixbuf = DlOpen("libgdk_pixbuf-2.0.so.0");
-+#endif
-   return libgdk_pixbuf;
- }
- 

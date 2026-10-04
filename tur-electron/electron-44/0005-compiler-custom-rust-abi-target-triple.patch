@@ -1,6 +1,6 @@
 --- a/build/config/rust.gni
 +++ b/build/config/rust.gni
-@@ -7,6 +7,8 @@
+@@ -9,4 +9,6 @@
  import("//build/config/sanitizers/sanitizers.gni")
  import("//build/toolchain/toolchain.gni")
  
@@ -9,17 +9,17 @@
  if (is_android) {
    import("//build/config/android/config.gni")
  }
-@@ -98,6 +100,8 @@
-   # a platform. Mostly applicable to Windows, where new versions can handle ANSI
-   # escape sequences but it's not reliable in general.
-   force_rustc_color_output = false
+@@ -108,4 +110,6 @@
+   # but nothing depends on tham and therefore Clippy will only be invoked
+   # in a full build (i.e. when building all targets).
+   enable_rust_clippy_eager = true
 +
 +  custom_target_rust_abi_target = ""
  }
  
  # Use a separate declare_args so these variables' defaults can depend on the
-@@ -165,7 +169,7 @@
- # TODO(crbug.com/1278030): To build unit tests for Android we need to build
+@@ -174,4 +178,4 @@
+ # TODO(crbug.com/40809974): To build unit tests for Android we need to build
  # them as a dylib and put them into an APK. We should reuse all the same logic
  # for gtests from the `//testing/test:test` template.
 -can_build_rust_unit_tests = toolchain_has_rust && !is_android
@@ -27,7 +27,9 @@
  
  # We want to store rust_sysroot as a source-relative variable for ninja
  # portability. In practice if an external toolchain was specified, it might
-@@ -280,6 +284,12 @@
+@@ -341,7 +345,13 @@
+   } else {
+     assert(false, "Architecture not supported")
    }
  }
  
@@ -37,6 +39,5 @@
 +  }
 +}
 +
- assert(!toolchain_has_rust || rust_abi_target != "")
- 
- # This variable is passed to the Rust libstd build.
+ if (toolchain_has_rust) {
+   assert(rust_abi_target != "")
