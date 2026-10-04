@@ -1,6 +1,6 @@
---- a/third_party/dawn/third_party/khronos/EGL-Registry/api/EGL/eglplatform.h
-+++ b/third_party/dawn/third_party/khronos/EGL-Registry/api/EGL/eglplatform.h
-@@ -88,7 +88,7 @@
+--- a/third_party/dawn/third_party/EGL-Registry/src/api/EGL/eglplatform.h
++++ b/third_party/dawn/third_party/EGL-Registry/src/api/EGL/eglplatform.h
+@@ -93,7 +93,7 @@
  typedef struct gbm_bo      *EGLNativePixmapType;
  typedef void               *EGLNativeWindowType;
  
@@ -9,7 +9,6 @@
  
  struct ANativeWindow;
  struct egl_native_pixmap_t;
-
 --- a/third_party/khronos/EGL/eglplatform.h
 +++ b/third_party/khronos/EGL/eglplatform.h
 @@ -88,7 +88,7 @@
@@ -21,19 +20,6 @@
  
  struct ANativeWindow;
  struct egl_native_pixmap_t;
-
---- a/third_party/angle/third_party/glmark2/src/src/glad/include/EGL/eglplatform.h
-+++ b/third_party/angle/third_party/glmark2/src/src/glad/include/EGL/eglplatform.h
-@@ -88,7 +88,7 @@
- typedef struct gbm_bo      *EGLNativePixmapType;
- typedef void               *EGLNativeWindowType;
- 
--#elif defined(__ANDROID__) || defined(ANDROID)
-+#elif (defined(__ANDROID__) || defined(ANDROID)) && !defined(__TERMUX__)
- 
- struct ANativeWindow;
- struct egl_native_pixmap_t;
-
 --- a/third_party/angle/include/EGL/eglplatform.h
 +++ b/third_party/angle/include/EGL/eglplatform.h
 @@ -88,7 +88,7 @@
