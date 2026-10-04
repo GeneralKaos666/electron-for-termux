@@ -11,10 +11,8 @@
  namespace {
  
  #if !BUILDFLAG(IS_FUCHSIA)
-@@ -210,6 +214,15 @@
-   base::CPU cpu_info;
- #endif
- 
+@@ -293,4 +297,13 @@
+ void ShellMainDelegate::PreSandboxStartup() {
 +// Disable sandbox on Termux.
 +#ifdef __TERMUX__
 +  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -26,17 +24,17 @@
 +
  // Disable platform crash handling and initialize the crash reporter, if
  // requested.
- // TODO(crbug.com/1226159): Implement crash reporter integration for Fuchsia.
+ // TODO(crbug.com/40188745): Implement crash reporter integration for Fuchsia.
 --- a/chrome/browser/ui/startup/bad_flags_prompt.cc
 +++ b/chrome/browser/ui/startup/bad_flags_prompt.cc
-@@ -60,10 +60,12 @@
- static const char* kBadFlags[] = {
-     network::switches::kIgnoreCertificateErrorsSPKIList,
+@@ -88,8 +88,10 @@
      // These flags disable sandbox-related security.
 +#ifndef __TERMUX__
      sandbox::policy::switches::kDisableGpuSandbox,
+     sandbox::policy::switches::kDisableLandlockSandbox,
      sandbox::policy::switches::kDisableSeccompFilterSandbox,
      sandbox::policy::switches::kDisableSetuidSandbox,
+     sandbox::policy::switches::kDisableWebNNCompilerSandbox,
      sandbox::policy::switches::kNoSandbox,
 +#endif
  #if BUILDFLAG(IS_WIN)
@@ -83,13 +81,12 @@
  namespace content {
  
  namespace {
-@@ -405,6 +409,9 @@
-     // to shell_main.cc that it's a browser test.
-     switches::kBrowserTest,
+@@ -455,3 +459,6 @@
+      switches::kBrowserTest,
  #endif
 +#ifdef __TERMUX__
-+    sandbox::policy::switches::kNoSandbox
++    sandbox::policy::switches::kNoSandbox,
 +#endif
-     switches::kCrashDumpsDir,
-     switches::kEnableCrashReporter,
-     switches::kExposeInternalsForTesting,
+      switches::kCrashDumpsDir,
+      switches::kEnableCrashReporter,
+      switches::kExposeInternalsForTesting,

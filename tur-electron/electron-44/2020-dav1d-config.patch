@@ -32,20 +32,20 @@ Aarch64 Android compiles as `armv8-a` and don't have so much extensions.
  
  #define HAVE_AS_FUNC 0
  
-@@ -59,11 +59,11 @@
+@@ -62,9 +62,9 @@
  
  #define HAVE_DLSYM 1
  
 -#define HAVE_DOTPROD 1
 +// #define HAVE_DOTPROD 1
  
+ #define HAVE_ELF_AUX_INFO 0
+ 
  #define HAVE_GETAUXVAL 1
  
 -#define HAVE_I8MM 1
 +// #define HAVE_I8MM 1
- 
- #define HAVE_POSIX_MEMALIGN 1
- 
+  
 @@ -71,9 +71,9 @@
  
  // #define HAVE_PTHREAD_SETAFFINITY_NP 1 -- Controlled by Chomium
