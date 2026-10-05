@@ -1,27 +1,39 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -19,6 +19,26 @@
+@@ -19,6 +19,38 @@
  path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
  
-+# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): dump loader
-+# info for the one host binary that dies in ld.so, so the log shows
-+# INTERP/RUNPATH/reloc sections without needing the binary locally.
++# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): summarize the
++# relocations of the one host binary that dies in ld.so, so the log shows
++# whether a non-RELATIVE entry sits inside the DT_RELACOUNT leading run.
 +if os.path.basename(path) == 'root_store_tool':
 +  try:
 +    _readobj = os.path.join(
 +        os.path.dirname(os.path.abspath(__file__)), '..', 'third_party',
 +        'llvm-build', 'Release+Asserts', 'bin', 'llvm-readobj')
 +    _out = subprocess.run(
-+        [_readobj, '--program-headers', '--dynamic-table', '--sections',
-+         path],
++        [_readobj, '--relocations', '--dynamic-table', path],
 +        capture_output=True,
 +        text=True,
-+        timeout=60).stdout
-+    print('TERMUX-DEBUG root_store_tool inspection:')
++        timeout=120).stdout
++    _types = {}
++    _first = []
++    _section = None
 +    for _line in _out.splitlines():
-+      print('TERMUX-DEBUG   ' + _line)
++      _s = _line.strip()
++      if _s.startswith('Section '):
++        _section = _s
++      _parts = _s.split()
++      if len(_parts) >= 3 and _parts[0].startswith('0x'):
++        _t = _parts[1]
++        _types[_t] = _types.get(_t, 0) + 1
++        if len(_first) < 12:
++          _first.append((_section, _parts[0], _t))
++    print('TERMUX-DEBUG reloc types: %r' % (_types,))
++    for _e in _first:
++      print('TERMUX-DEBUG   first: %r' % (_e,))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
