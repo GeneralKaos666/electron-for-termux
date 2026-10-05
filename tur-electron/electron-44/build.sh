@@ -18,6 +18,12 @@ __tur_setup_depot_tools() {
 	fi
 	export PATH="$TERMUX_PKG_CACHEDIR/depot_tools:$PATH"
 	export CHROMIUM_BUILDTOOLS_PATH="$TERMUX_PKG_SRCDIR/buildtools"
+	# DEPOT_TOOLS_UPDATE=0 suppresses depot_tools' self-bootstrap, so `gn`
+	# fails with "python3_bin_reldir.txt not found" on fresh runners/caches.
+	# Bootstrap the hermetic Python explicitly when the stamp is missing.
+	if [ ! -f "$TERMUX_PKG_CACHEDIR/depot_tools/python3_bin_reldir.txt" ]; then
+		(env -u DEPOT_TOOLS_UPDATE "$TERMUX_PKG_CACHEDIR/depot_tools/ensure_bootstrap")
+	fi
 }
 
 termux_step_get_source() {
