@@ -1,0 +1,29 @@
+--- a/build/gn_run_binary.py
++++ b/build/gn_run_binary.py
+@@ -19,6 +19,26 @@
+ path = sys.argv[1]
+ if not os.path.isabs(path):
+   path = './' + path
+ 
++# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): dump loader
++# info for the one host binary that dies in ld.so, so the log shows
++# INTERP/RUNPATH/reloc sections without needing the binary locally.
++if os.path.basename(path) == 'root_store_tool':
++  try:
++    _readobj = os.path.join(
++        os.path.dirname(os.path.abspath(__file__)), '..', 'third_party',
++        'llvm-build', 'Release+Asserts', 'bin', 'llvm-readobj')
++    _out = subprocess.run(
++        [_readobj, '--program-headers', '--dynamic-table', '--sections',
++         path],
++        capture_output=True,
++        text=True,
++        timeout=60).stdout
++    print('TERMUX-DEBUG root_store_tool inspection:')
++    for _line in _out.splitlines():
++      print('TERMUX-DEBUG   ' + _line)
++  except Exception as _e:  # never break the build over diagnostics
++    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
++
+ # The rest of the arguments are passed directly to the executable.
+ args = [path] + sys.argv[2:]
