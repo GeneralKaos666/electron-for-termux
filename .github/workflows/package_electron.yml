@@ -82,7 +82,7 @@ jobs:
             CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r "${BASE_COMMIT}" "HEAD")
           fi
         fi
-        mkdir -p ./artifacts ./debs ./output-electron
+        mkdir -p ./artifacts ./debs ./output-electron ./build-status ./build-deps ./output
         touch ./debs/.placeholder
         if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
           # Process tag '%ci:no-build' that may be added as line to commit message.
