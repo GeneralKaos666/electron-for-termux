@@ -16,6 +16,10 @@
 
 name: Packages-electron
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -23,10 +27,12 @@ on:
     paths:
     - 'tur-electron/**'
     - 'tur-electron-2/**'
+    - '.github/workflows/package_electron.yml'
   pull_request:
     paths:
     - 'tur-electron/**'
     - 'tur-electron-2/**'
+    - '.github/workflows/package_electron.yml'
   workflow_dispatch:
     inputs:
       packages:
