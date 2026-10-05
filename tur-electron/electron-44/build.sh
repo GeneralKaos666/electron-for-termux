@@ -106,42 +106,34 @@ termux_step_configure() {
 	./tools/rust/update_rust.py
 	./tools/clang/scripts/update.py
 
-	# TEMP-DEBUG: map where compiler-rt builtins actually live.
-	echo "[rt-debug] STANDALONE=$TERMUX_STANDALONE_TOOLCHAIN NDK=${NDK:-unset}"
-	ls "$TERMUX_STANDALONE_TOOLCHAIN/lib/clang/" 2>/dev/null
-	ls "$TERMUX_STANDALONE_TOOLCHAIN/lib64/clang/" 2>/dev/null
-	ls "$PWD/third_party/llvm-build/Release+Asserts/lib/clang/" 2>/dev/null
-	echo "[rt-debug] NDK builtins:"
-	find "$TERMUX_STANDALONE_TOOLCHAIN" -maxdepth 6 -name "*builtins*.a" 2>/dev/null | head -n 30
-	echo "[rt-debug] upstream builtins:"
-	find "$PWD/third_party/llvm-build" -maxdepth 6 -name "*builtins*.a" 2>/dev/null | head -n 30
-
-	# Termux's standalone NDK ships a reduced clang runtime set, but some
-	# build links (e.g. Rust host-build-tools shims) reference Android
-	# compiler-rt builtins that are absent there. Backfill any missing
-	# builtins from the upstream clang package downloaded above; the
-	# archives are version-independent machine code.
-	# Termux's standalone NDK ships a reduced clang runtime set, but some
-	# build links reference Android compiler-rt builtins that are absent
-	# there. Backfill any missing builtins first from the full NDK (same
-	# clang version, best match), then from the upstream clang package
-	# downloaded above; the archives are version-independent machine code.
+	# Ensure the Android compiler-rt builtins our clang_lib patch references
+	# exist where GN expects them (lib/clang/18/lib/linux). The standalone
+	# NDK's layout and runtime set change across releases, so resolve each
+	# archive from anywhere in the NDK tree first, then the full NDK, then
+	# the upstream clang package, and link/copy it into place.
 	shopt -s nullglob
-	local _rt_dir _up_rt_dir _rt _dest
-	for _rt_dir in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux; do
-		[ -d "$_rt_dir" ] || continue
-		local _ndk_root="${NDK:-}"
-		for _up_rt_dir in "$_ndk_root"/toolchains/llvm/prebuilt/*/lib/clang/*/lib/linux "$_ndk_root"/lib/clang/*/lib/linux "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
-			[ -d "$_up_rt_dir" ] || continue
-			for _rt in "$_up_rt_dir"/libclang_rt.builtins-*-android.a "$_up_rt_dir"/libclang_rt.builtins.a; do
-				[ -f "$_rt" ] || continue
-				_dest="$_rt_dir/$(basename "$_rt")"
-				if [ ! -f "$_dest" ]; then
-					echo "[rt-backfill] $(basename "$_rt") -> $_rt_dir"
-					cp -f "$_rt" "$_dest"
-				fi
-			done
+	local _bt _bt_candidates _bt_src _bt_dest_dir _bt_dest
+	_bt_dest_dir="$TERMUX_STANDALONE_TOOLCHAIN/lib/clang/18/lib/linux"
+	mkdir -p "$_bt_dest_dir"
+	for _bt in libclang_rt.builtins-aarch64-android.a libclang_rt.builtins-arm-android.a libclang_rt.builtins-x86_64-android.a libclang_rt.builtins-i686-android.a libclang_rt.builtins.a; do
+		_bt_dest="$_bt_dest_dir/$_bt"
+		[ -e "$_bt_dest" ] && continue
+		_bt_src=""
+		for _bt_candidates in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux/"$_bt" "$TERMUX_STANDALONE_TOOLCHAIN"/lib64/clang/*/lib/linux/"$_bt" "${NDK:-}"/toolchains/llvm/prebuilt/*/lib/clang/*/lib/linux/"$_bt" "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux/"$_bt"; do
+			[ -f "$_bt_candidates" ] || continue
+			_bt_src="$_bt_candidates"
+			break
 		done
+		if [ -n "$_bt_src" ]; then
+			echo "[rt] providing $_bt from $_bt_src"
+			if [[ "$_bt_src" == "$TERMUX_STANDALONE_TOOLCHAIN"* ]]; then
+				ln -sfn "$_bt_src" "$_bt_dest"
+			else
+				cp -f "$_bt_src" "$_bt_dest"
+			fi
+		else
+			echo "[rt] WARNING: no source found for $_bt"
+		fi
 	done
 	shopt -u nullglob
 
