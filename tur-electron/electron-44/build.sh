@@ -95,14 +95,22 @@ termux_step_configure() {
 	# strip the rejected ones, so future flag additions degrade to a
 	# re-probe instead of a failed build. Host toolchains use explicit
 	# upstream clang paths and never see these wrappers.
+	# Flags are either literals (exact match) or prefixes ending in '='
+	# (for GN-interpolated forms like -fsanitize-ignore-for-ubsan-feature
+	# whose values only exist at gen time); prefixes are probed with an
+	# empty value and stripped only when clang reports them unknown (as
+	# opposed to complaining about the value).
 	local _ndk_filter_dir="$TERMUX_PKG_CACHEDIR/ndk-flag-filter"
 	rm -rf "$_ndk_filter_dir"
 	mkdir -p "$_ndk_filter_dir"
 	local _real_cc="$CC" _real_cxx="${CXX:-$CC}"
-	local _flag_list _f
-	_flag_list="$(grep -o '"-[fm][A-Za-z0-9-]*\(=[^"]*\)\?"' build/config/compiler/BUILD.gn | tr -d '"' | sort -u)"
+	local _flag_list _flag_pfx _f _probe_err
+	_flag_list="$(grep -ho '"-[fm][A-Za-z0-9-]*\(=[^"]*\)\?"' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u)"
+	_flag_pfx="$(grep -ho '"-[fm][A-Za-z0-9-]*=' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u)"
 	local _deny_file="$_ndk_filter_dir/denylist.txt"
+	local _pfx_file="$_ndk_filter_dir/prefixlist.txt"
 	: >"$_deny_file"
+	: >"$_pfx_file"
 	for _f in $_flag_list; do
 		case "$_f" in
 		*\${* | *\ *) continue ;;
@@ -111,6 +119,20 @@ termux_step_configure() {
 		if ! echo 'int _termux_probe_flag;' | "$_real_cxx" -x c++ -fsyntax-only "$_f" -o /dev/null - 2>/dev/null; then
 			echo "$_f" >>"$_deny_file"
 		fi
+	done
+	for _f in $_flag_pfx; do
+		case "$_f" in
+		*\${* | *\ *) continue ;;
+		esac
+		# Probe with a dummy value: an unknown flag reports "unknown
+		# argument" regardless of value, while a known flag complains
+		# about the value instead (or accepts it) and must be kept.
+		# (The || true is load-bearing: a failing probe must not trip
+		# set -e/pipefail here.)
+		_probe_err="$(echo 'int _termux_probe_flag;' | "$_real_cxx" -x c++ -fsyntax-only "${_f}test" -o /dev/null - 2>&1)" || true
+		case "$_probe_err" in
+		*"unknown argument"*) echo "$_f" >>"$_pfx_file" ;;
+		esac
 	done
 	local _wrap_name _wrap_real _wrap_pat
 	for _wrap_name in "$(basename "$_real_cc")" "$(basename "$_real_cxx")"; do
@@ -128,11 +150,27 @@ termux_step_configure() {
 				case "$_wrap_pat" in "" | \#*) continue ;; esac
 				printf '_DENY[%q]=1\n' "$_wrap_pat"
 			done <"$_deny_file"
+			echo 'declare -A _PFX=()'
+			while IFS= read -r _wrap_pat || [ -n "$_wrap_pat" ]; do
+				case "$_wrap_pat" in "" | \#*) continue ;; esac
+				printf '_PFX[%q]=1\n' "$_wrap_pat"
+			done <"$_pfx_file"
 			echo '_ARGS=()'
 			echo '_SKIP_NEXT=0'
 			echo 'for _a in "$@"; do'
 			echo '  if [ "$_SKIP_NEXT" = 1 ]; then _SKIP_NEXT=0; continue; fi'
 			echo '  if [ -n "${_DENY[$_a]:-}" ]; then'
+			echo '    case "$_a" in -mllvm|-Xclang) _SKIP_NEXT=1;; esac'
+			echo '    continue'
+			echo '  fi'
+			echo '  _DROP=0'
+			echo '  if [ -n "${_DENY[$_a]:-}" ]; then _DROP=1; fi'
+			echo '  if [ "$_DROP" = 0 ]; then'
+			echo '    for _k in ${!PFX[@]+"${!PFX[@]}"}; do'
+			echo '      case "$_a" in "$_k"*) _DROP=1; break;; esac'
+			echo '    done'
+			echo '  fi'
+			echo '  if [ "$_DROP" = 1 ]; then'
 			echo '    case "$_a" in -mllvm|-Xclang) _SKIP_NEXT=1;; esac'
 			echo '    continue'
 			echo '  fi'
