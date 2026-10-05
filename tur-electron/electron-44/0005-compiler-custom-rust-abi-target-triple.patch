@@ -24,9 +24,12 @@
    }
  }
  
-+if (!toolchain_for_rust_host_build_tools && current_toolchain != v8_snapshot_toolchain && current_toolchain != host_toolchain) {
++if (current_toolchain == default_toolchain) {
 +  # Termux/Bionic: the NDK Rust toolchain needs Android triples, while
-+  # upstream computes linux-gnu triples for linux builds.
++  # upstream computes linux-gnu triples for linux builds. Only the
++  # on-device target toolchain is overridden; host-shaped toolchains
++  # (host, V8 snapshot, Rust host-build-tools) keep upstream triples,
++  # whose compiler-rt builtins exist in the host clang package.
 +  if (current_cpu == "arm64") {
 +    rust_abi_target = "aarch64-linux-android"
 +  } else if (current_cpu == "arm") {
