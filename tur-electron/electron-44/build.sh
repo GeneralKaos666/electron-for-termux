@@ -111,16 +111,25 @@ termux_step_configure() {
 	# compiler-rt builtins that are absent there. Backfill any missing
 	# builtins from the upstream clang package downloaded above; the
 	# archives are version-independent machine code.
+	# Termux's standalone NDK ships a reduced clang runtime set, but some
+	# build links reference Android compiler-rt builtins that are absent
+	# there. Backfill any missing builtins first from the full NDK (same
+	# clang version, best match), then from the upstream clang package
+	# downloaded above; the archives are version-independent machine code.
 	shopt -s nullglob
 	local _rt_dir _up_rt_dir _rt _dest
 	for _rt_dir in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux; do
 		[ -d "$_rt_dir" ] || continue
-		for _up_rt_dir in "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
+		local _ndk_root="${NDK:-}"
+		for _up_rt_dir in "$_ndk_root"/toolchains/llvm/prebuilt/*/lib/clang/*/lib/linux "$_ndk_root"/lib/clang/*/lib/linux "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
 			[ -d "$_up_rt_dir" ] || continue
 			for _rt in "$_up_rt_dir"/libclang_rt.builtins-*-android.a "$_up_rt_dir"/libclang_rt.builtins.a; do
 				[ -f "$_rt" ] || continue
 				_dest="$_rt_dir/$(basename "$_rt")"
-				[ -f "$_dest" ] || cp -f "$_rt" "$_dest"
+				if [ ! -f "$_dest" ]; then
+					echo "[rt-backfill] $(basename "$_rt") -> $_rt_dir"
+					cp -f "$_rt" "$_dest"
+				fi
 			done
 		done
 	done
