@@ -106,6 +106,24 @@ termux_step_configure() {
 	./tools/rust/update_rust.py
 	./tools/clang/scripts/update.py
 
+	# Termux's standalone NDK ships a reduced clang runtime set, but some
+	# build links (e.g. Rust host-build-tools shims) reference Android
+	# compiler-rt builtins that are absent there. Backfill any missing
+	# builtins from the upstream clang package downloaded above; the
+	# archives are version-independent machine code.
+	shopt -s nullglob
+	local _rt_dir
+	for _rt_dir in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux; do
+		local _up_rt_dir
+		for _up_rt_dir in "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
+			local _rt
+			for _rt in "$_up_rt_dir"/libclang_rt.builtins-*-android.a "$_up_rt_dir"/libclang_rt.builtins.a; do
+				[ -f "$_rt_dir/$(basename "$_rt")" ] || cp -f "$_rt" "$_rt_dir/"
+			done
+		done
+	done
+	shopt -u nullglob
+
 	# Install amd64 rootfs if necessary, it should have been installed by source hooks.
 	build/linux/sysroot_scripts/install-sysroot.py --sysroots-json-path=electron/script/sysroots.json --arch=amd64
 	local _amd64_sysroot_path="$(pwd)/build/linux/$(ls build/linux | grep 'amd64-sysroot')"
