@@ -114,11 +114,6 @@ termux_step_configure() {
 	build/linux/sysroot_scripts/install-sysroot.py --sysroots-json-path=electron/script/sysroots.json --arch=i386
 	local _i386_sysroot_path="$(pwd)/build/linux/$(ls build/linux | grep 'i386-sysroot')"
 
-	local CARGO_TARGET_NAME="${TERMUX_ARCH}-linux-android"
-	if [[ "${TERMUX_ARCH}" == "arm" ]]; then
-		CARGO_TARGET_NAME="armv7-linux-androideabi"
-	fi
-
 	# Link to system tools required by the build
 	mkdir -p third_party/node/linux/node-linux-x64/bin
 	ln -sf $(command -v node) third_party/node/linux/node-linux-x64/bin/
@@ -256,7 +251,8 @@ is_cfi = false
 use_cfi_icall = false
 use_thin_lto = false
 # Enable rust
-custom_target_rust_abi_target = \"$CARGO_TARGET_NAME\"
+# (The NDK Rust triple is selected per-CPU by our rust.gni patch;
+# no build arg needed.)
 llvm_android_mainline = true
 exclude_unwind_tables = false
 " >>$_common_args_file
@@ -299,7 +295,10 @@ exclude_unwind_tables = false
 
 termux_step_make() {
 	cd $TERMUX_PKG_BUILDDIR
-	ninja -C $TERMUX_PKG_BUILDDIR/out/Release electron:node_headers electron electron_license chromium_licenses
+	# Use the real ninja binary: depot_tools' ninja.py wrapper requires the
+	# output dir to live inside a checkout, but our build dir is a sibling
+	# of src and it aborts with "Could not find checkout".
+	"$TERMUX_PREFIX/bin/ninja" -C $TERMUX_PKG_BUILDDIR/out/Release electron:node_headers electron electron_license chromium_licenses
 	rm -rf "$TERMUX_PKG_CACHEDIR/sysroot-$TERMUX_ARCH"
 }
 
