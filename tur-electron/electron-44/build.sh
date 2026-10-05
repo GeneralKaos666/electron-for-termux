@@ -106,6 +106,16 @@ termux_step_configure() {
 	./tools/rust/update_rust.py
 	./tools/clang/scripts/update.py
 
+	# TEMP-DEBUG: map where compiler-rt builtins actually live.
+	echo "[rt-debug] STANDALONE=$TERMUX_STANDALONE_TOOLCHAIN NDK=${NDK:-unset}"
+	ls "$TERMUX_STANDALONE_TOOLCHAIN/lib/clang/" 2>/dev/null
+	ls "$TERMUX_STANDALONE_TOOLCHAIN/lib64/clang/" 2>/dev/null
+	ls "$PWD/third_party/llvm-build/Release+Asserts/lib/clang/" 2>/dev/null
+	echo "[rt-debug] NDK builtins:"
+	find "$TERMUX_STANDALONE_TOOLCHAIN" -maxdepth 6 -name "*builtins*.a" 2>/dev/null | head -n 30
+	echo "[rt-debug] upstream builtins:"
+	find "$PWD/third_party/llvm-build" -maxdepth 6 -name "*builtins*.a" 2>/dev/null | head -n 30
+
 	# Termux's standalone NDK ships a reduced clang runtime set, but some
 	# build links (e.g. Rust host-build-tools shims) reference Android
 	# compiler-rt builtins that are absent there. Backfill any missing
