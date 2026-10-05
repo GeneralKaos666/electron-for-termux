@@ -211,6 +211,11 @@ use_custom_libcxx = false
 use_custom_libcxx_for_host = true
 use_allocator_shim = false
 use_partition_alloc_as_malloc = false
+# Termux uses the system C++ library (Bionic) instead of the in-tree
+# hardened libc++, but v44's V8 sandbox asserts on hardened libc++.
+# The OS sandbox is already disabled on Termux, so disable the V8
+# sandbox too rather than fight Bionic with a bundled libc++.
+v8_enable_sandbox = false
 enable_backup_ref_ptr_slow_checks = false
 enable_dangling_raw_ptr_checks = false
 enable_dangling_raw_ptr_feature_flag = false
