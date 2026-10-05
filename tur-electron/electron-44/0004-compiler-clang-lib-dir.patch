@@ -21,17 +21,19 @@
  if (is_ios) {
    import("//build/config/ios/config.gni")  # For `target_environment`
  }
-@@ -186,6 +186,21 @@
+@@ -186,6 +186,23 @@
        }
  
        _clang_lib_dir = "$clang_base_path/lib/clang/$clang_version/lib"
 +
-+      if (is_a_target_toolchain && current_toolchain != v8_snapshot_toolchain) {
++      # Termux's NDK only ships runtimes for on-device archs; keep
++      # host-shaped toolchains (e.g. Rust host-build-tools, x64) on the
++      # upstream runtimes whose files are guaranteed to exist.
++      if (is_a_target_toolchain && current_toolchain != v8_snapshot_toolchain &&
++          (current_cpu == "arm" || current_cpu == "arm64")) {
 +        _dir = "linux"
 +        _clang_lib_dir = "$custom_toolchain_clang_base_path/lib/clang/$custom_toolchain_clang_version/lib"
-+        if (current_cpu == "x64") {
-+          _suffix = "-x86_64-android"
-+        } else if (current_cpu == "arm") {
++        if (current_cpu == "arm") {
 +          _suffix = "-arm-android"
 +        } else if (current_cpu == "arm64") {
 +          _suffix = "-aarch64-android"
