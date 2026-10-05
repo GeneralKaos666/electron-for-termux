@@ -205,7 +205,7 @@ treat_warnings_as_errors = false
 # Use system libraries as little as possible
 use_bundled_fontconfig = false
 use_system_freetype = false
-use_system_libdrm = true
+use_system_libdrm = false
 use_system_libffi = true
 use_custom_libcxx = false
 use_custom_libcxx_for_host = true
