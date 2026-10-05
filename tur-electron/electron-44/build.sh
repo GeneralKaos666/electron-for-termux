@@ -115,12 +115,16 @@ termux_step_configure() {
 	local _rt_dir _up_rt_dir _rt _dest
 	for _rt_dir in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux; do
 		[ -d "$_rt_dir" ] || continue
+		echo "[rt-backfill] NDK rt dir: $_rt_dir"
+		ls "$_rt_dir" | head -n 30
 		for _up_rt_dir in "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
 			[ -d "$_up_rt_dir" ] || continue
+			echo "[rt-backfill] upstream rt dir: $_up_rt_dir"
+			ls "$_up_rt_dir" | grep -i "builtins" | head -n 30
 			for _rt in "$_up_rt_dir"/libclang_rt.builtins-*-android.a "$_up_rt_dir"/libclang_rt.builtins.a; do
 				[ -f "$_rt" ] || continue
 				_dest="$_rt_dir/$(basename "$_rt")"
-				[ -f "$_dest" ] || cp -f "$_rt" "$_dest"
+				[ -f "$_dest" ] || cp -fv "$_rt" "$_dest"
 			done
 		done
 	done
