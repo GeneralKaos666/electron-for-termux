@@ -112,13 +112,15 @@ termux_step_configure() {
 	# builtins from the upstream clang package downloaded above; the
 	# archives are version-independent machine code.
 	shopt -s nullglob
-	local _rt_dir
+	local _rt_dir _up_rt_dir _rt _dest
 	for _rt_dir in "$TERMUX_STANDALONE_TOOLCHAIN"/lib/clang/*/lib/linux; do
-		local _up_rt_dir
+		[ -d "$_rt_dir" ] || continue
 		for _up_rt_dir in "$PWD"/third_party/llvm-build/Release+Asserts/lib/clang/*/lib/linux; do
-			local _rt
+			[ -d "$_up_rt_dir" ] || continue
 			for _rt in "$_up_rt_dir"/libclang_rt.builtins-*-android.a "$_up_rt_dir"/libclang_rt.builtins.a; do
-				[ -f "$_rt_dir/$(basename "$_rt")" ] || cp -f "$_rt" "$_rt_dir/"
+				[ -f "$_rt" ] || continue
+				_dest="$_rt_dir/$(basename "$_rt")"
+				[ -f "$_dest" ] || cp -f "$_rt" "$_dest"
 			done
 		done
 	done
