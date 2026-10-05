@@ -228,6 +228,10 @@ use_alsa = false
 use_libpci = false
 use_pulseaudio = true
 use_ozone = true
+# Electron does not use Chromoting; disabling keeps the pipewire
+# runtime-loader probe (remoting/host) out of the Termux sysroot,
+# which has no libpipewire.
+enable_remoting = false
 ozone_auto_platforms = false
 ozone_platform = \"x11\"
 ozone_platform_x11 = true
