@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -19,6 +19,42 @@
+@@ -19,6 +19,43 @@
  path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
@@ -38,6 +38,7 @@
 +    print('TERMUX-DEBUG non-relative in .rela.dyn: %r' % (_odd,))
 +    print('TERMUX-DEBUG boundary[4230:4242]: %r' %
 +          ([(i, _at.get(i)) for i in range(4230, 4242)],))
++    print('TERMUX-DEBUG env: LD_LIBRARY_PATH=%r LD_PRELOAD=%r' % (os.environ.get('LD_LIBRARY_PATH'), os.environ.get('LD_PRELOAD'),))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
