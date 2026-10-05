@@ -246,7 +246,8 @@ angle_enable_abseil = false
 rtc_use_pipewire = false
 use_vaapi = false
 # See comments on Chromium package
-enable_nacl = false
+# (enable_nacl removed upstream: NaCl no longer exists in v44, so the
+# explicit false would only warn as having no effect.)
 is_cfi = false
 use_cfi_icall = false
 use_thin_lto = false
@@ -295,10 +296,11 @@ exclude_unwind_tables = false
 
 termux_step_make() {
 	cd $TERMUX_PKG_BUILDDIR
-	# Use the real ninja binary: depot_tools' ninja.py wrapper requires the
-	# output dir to live inside a checkout, but our build dir is a sibling
-	# of src and it aborts with "Could not find checkout".
-	"$TERMUX_PREFIX/bin/ninja" -C $TERMUX_PKG_BUILDDIR/out/Release electron:node_headers electron electron_license chromium_licenses
+	# depot_tools' ninja.py wrapper aborts with "Could not find checkout"
+	# because our build dir is a sibling of src, so resolve the real ninja
+	# binary that termux_setup_ninja installed with depot_tools off PATH.
+	local _real_ninja="$(PATH="$(echo "$PATH" | tr ':' '\n' | grep -v 'depot_tools' | paste -sd:)" command -v ninja)"
+	"$_real_ninja" -C $TERMUX_PKG_BUILDDIR/out/Release electron:node_headers electron electron_license chromium_licenses
 	rm -rf "$TERMUX_PKG_CACHEDIR/sysroot-$TERMUX_ARCH"
 }
 
