@@ -105,8 +105,8 @@ termux_step_configure() {
 	mkdir -p "$_ndk_filter_dir"
 	local _real_cc="$CC" _real_cxx="${CXX:-$CC}"
 	local _flag_list _flag_pfx _f _probe_err
-	_flag_list="$(grep -ho '"-[fm][A-Za-z0-9-]*\(=[^"]*\)\?"' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u)"
-	_flag_pfx="$(grep -ho '"-[fm][A-Za-z0-9-]*=' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u)"
+	_flag_list="$(grep -ho '"-[fm][A-Za-z0-9-]*\(=[^"]*\)\?"' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u || true)"
+	_flag_pfx="$(grep -ho '"-[fm][A-Za-z0-9-]*=' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u || true)"
 	local _deny_file="$_ndk_filter_dir/denylist.txt"
 	local _pfx_file="$_ndk_filter_dir/prefixlist.txt"
 	: >"$_deny_file"
@@ -155,6 +155,7 @@ termux_step_configure() {
 				case "$_wrap_pat" in "" | \#*) continue ;; esac
 				printf '_PFX[%q]=1\n' "$_wrap_pat"
 			done <"$_pfx_file"
+			echo '_PFX_LIST="$(printf "%s\n" "${!_PFX[@]}" | tr "\n" " ")"'
 			echo '_ARGS=()'
 			echo '_SKIP_NEXT=0'
 			echo 'for _a in "$@"; do'
@@ -166,7 +167,7 @@ termux_step_configure() {
 			echo '  _DROP=0'
 			echo '  if [ -n "${_DENY[$_a]:-}" ]; then _DROP=1; fi'
 			echo '  if [ "$_DROP" = 0 ]; then'
-			echo '    for _k in ${!PFX[@]+"${!PFX[@]}"}; do'
+			echo '    for _k in $_PFX_LIST; do'
 			echo '      case "$_a" in "$_k"*) _DROP=1; break;; esac'
 			echo '    done'
 			echo '  fi'
