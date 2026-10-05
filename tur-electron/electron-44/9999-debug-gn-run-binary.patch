@@ -1,39 +1,43 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -19,6 +19,38 @@
+@@ -19,6 +19,42 @@
  path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
  
-+# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): summarize the
-+# relocations of the one host binary that dies in ld.so, so the log shows
-+# whether a non-RELATIVE entry sits inside the DT_RELACOUNT leading run.
++# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): locate any
++# non-RELATIVE entry inside the DT_RELACOUNT leading run of .rela.dyn.
 +if os.path.basename(path) == 'root_store_tool':
 +  try:
 +    _readobj = os.path.join(
 +        os.path.dirname(os.path.abspath(__file__)), '..', 'third_party',
 +        'llvm-build', 'Release+Asserts', 'bin', 'llvm-readobj')
 +    _out = subprocess.run(
-+        [_readobj, '--relocations', '--dynamic-table', path],
++        [_readobj, '--relocations', path],
 +        capture_output=True,
 +        text=True,
 +        timeout=120).stdout
-+    _types = {}
-+    _first = []
 +    _section = None
++    _idx = -1
++    _odd = []
++    _at = {}
 +    for _line in _out.splitlines():
 +      _s = _line.strip()
 +      if _s.startswith('Section '):
 +        _section = _s
++        _idx = -1
++        continue
 +      _parts = _s.split()
-+      if len(_parts) >= 3 and _parts[0].startswith('0x'):
++      if len(_parts) >= 2 and _parts[0].startswith('0x'):
++        _idx += 1
 +        _t = _parts[1]
-+        _types[_t] = _types.get(_t, 0) + 1
-+        if len(_first) < 12:
-+          _first.append((_section, _parts[0], _t))
-+    print('TERMUX-DEBUG reloc types: %r' % (_types,))
-+    for _e in _first:
-+      print('TERMUX-DEBUG   first: %r' % (_e,))
++        if _section is not None and '.rela.dyn' in _section:
++          _at[_idx] = _t
++          if _t not in ('R_X86_64_RELATIVE', 'R_X86_64_RELATIVE64'):
++            _odd.append((_idx, _t, _parts[0]))
++    print('TERMUX-DEBUG non-relative in .rela.dyn: %r' % (_odd,))
++    print('TERMUX-DEBUG boundary[4230:4242]: %r' %
++          ([(i, _at.get(i)) for i in range(4230, 4242)],))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
