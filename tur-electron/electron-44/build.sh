@@ -134,6 +134,16 @@ termux_step_configure() {
 		*"unknown argument"*) echo "$_f" >>"$_pfx_file" ;;
 		esac
 	done
+	# Android triple for this build arch; gnu --target args are
+	# retargeted to it (a gnu triple breaks NDK libc++ search).
+	local _ndk_triple
+	case "$TERMUX_ARCH" in
+		aarch64) _ndk_triple="aarch64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+		arm) _ndk_triple="armv7a-linux-androideabi${TERMUX_PKG_API_LEVEL}" ;;
+		i686) _ndk_triple="i686-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+		x86_64) _ndk_triple="x86_64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+		*) _ndk_triple="" ;;
+	esac
 	local _wrap_name _wrap_real _wrap_pat
 	for _wrap_name in "$(basename "$_real_cc")" "$(basename "$_real_cxx")"; do
 		if [ "$_wrap_name" = "$(basename "$_real_cxx")" ]; then
@@ -150,16 +160,18 @@ termux_step_configure() {
 				case "$_wrap_pat" in "" | \#*) continue ;; esac
 				printf '_DENY[%q]=1\n' "$_wrap_pat"
 			done <"$_deny_file"
-			echo 'declare -A _PFX=()'
+			echo "_TRIPLE=\"$_ndk_triple\""
+			printf '_PFX_LIST="'
 			while IFS= read -r _wrap_pat || [ -n "$_wrap_pat" ]; do
 				case "$_wrap_pat" in "" | \#*) continue ;; esac
-				printf '_PFX[%q]=1\n' "$_wrap_pat"
+				printf '%s ' "$_wrap_pat"
 			done <"$_pfx_file"
-			echo '_PFX_LIST="$(printf "%s\n" "${!_PFX[@]}" | tr "\n" " ")"'
+			printf '"\n'
 			echo '_ARGS=()'
 			echo '_SKIP_NEXT=0'
 			echo 'for _a in "$@"; do'
 			echo '  if [ "$_SKIP_NEXT" = 1 ]; then _SKIP_NEXT=0; continue; fi'
+			echo '  case "$_a" in --target=*-gnu*) if [ -n "$_TRIPLE" ]; then _a="--target=$_TRIPLE"; fi;; esac'
 			echo '  if [ -n "${_DENY[$_a]:-}" ]; then'
 			echo '    case "$_a" in -mllvm|-Xclang) _SKIP_NEXT=1;; esac'
 			echo '    continue'
