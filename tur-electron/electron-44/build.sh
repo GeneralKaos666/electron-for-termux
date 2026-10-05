@@ -72,6 +72,14 @@ termux_step_get_source() {
 
 termux_step_post_get_source() {
 	echo "$TERMUX_PKG_VERSION" >$TERMUX_PKG_SRCDIR/electron/ELECTRON_VERSION
+	# v44's build/timestamp.gni runs compute_build_timestamp.py, which reads
+	# build/util/LASTCHANGE.committime. gclient hooks cannot generate it for
+	# --no-history checkouts, so fall back to the current time when the file
+	# is missing, empty, or not a timestamp.
+	local _lastchange_committime=$TERMUX_PKG_SRCDIR/build/util/LASTCHANGE.committime
+	if ! grep -qE '^[0-9]+$' "$_lastchange_committime" 2>/dev/null; then
+		date +%s >"$_lastchange_committime"
+	fi
 }
 
 termux_step_configure() {
