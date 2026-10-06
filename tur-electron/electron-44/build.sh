@@ -348,7 +348,12 @@ treat_warnings_as_errors = false
 use_bundled_fontconfig = false
 use_system_freetype = false
 use_system_libdrm = false
-use_system_libffi = true
+# Chromium defaults use_system_libffi to false on Linux: libffi must be
+# statically linked (ffi_pic) so host tools don't pick up a runtime
+# libffi.so.7 from the bullseye sysroot (trips Ubuntu 24.04 glibc
+# RELACOUNT assert in ld.so). Target still resolves -lffi_pic via the
+# $PREFIX symlink + merged sysroot below; host via the sysroot static.
+use_system_libffi = false
 use_custom_libcxx = false
 use_custom_libcxx_for_host = true
 use_allocator_shim = false
@@ -431,9 +436,6 @@ exclude_unwind_tables = false
 	mkdir -p $TERMUX_PKG_BUILDDIR/out/Release
 	cat $_common_args_file >$TERMUX_PKG_BUILDDIR/out/Release/args.gn
 	gn gen $TERMUX_PKG_BUILDDIR/out/Release
-	# TEMP-DEBUG: show how libffi enters host links.
-	grep -n "libffi" $TERMUX_PKG_BUILDDIR/out/Release/build.ninja | head -n 10 || true
-	grep -n -A6 "^build host/root_store_tool:" $TERMUX_PKG_BUILDDIR/out/Release/build.ninja | head -n 20 || true
 }
 
 termux_step_make() {
