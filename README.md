@@ -26,6 +26,15 @@ Active work: `tur-electron/electron-44/` (Electron 44.5.1 /
 Chromium 152). See the commit history for the porting progress
 (patch rebases, toolchain updates, CI fixes).
 
+## Build checklist
+
+- [x] 61 patches rebased, dry-run CLEAN vs pinned DEPS
+- [x] `gn gen` green (40016 targets)
+- [ ] Fix `host/root_store_tool` loader assert
+  (`elf_machine_rela_relative`, exit 127)
+- [ ] Triage remaining ninja failures to full electron link
+- [ ] Zip/deb artifacts produced, CI green
+
 ## Building
 
 Trigger a build from the Actions tab with the package name, e.g.
