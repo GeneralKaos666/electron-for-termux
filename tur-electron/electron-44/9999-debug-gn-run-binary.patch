@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -19,6 +19,43 @@
+@@ -19,6 +19,45 @@
  path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
@@ -41,6 +41,8 @@
 +    print('TERMUX-DEBUG env: LD_LIBRARY_PATH=%r LD_PRELOAD=%r' % (os.environ.get('LD_LIBRARY_PATH'), os.environ.get('LD_PRELOAD'),))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
++  # Show exactly which relocation the loader chokes on.
++  os.environ['LD_DEBUG'] = 'reloc'
 +
  # The rest of the arguments are passed directly to the executable.
  args = [path] + sys.argv[2:]
