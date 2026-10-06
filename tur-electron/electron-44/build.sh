@@ -138,11 +138,11 @@ termux_step_configure() {
 	# retargeted to it (a gnu triple breaks NDK libc++ search).
 	local _ndk_triple
 	case "$TERMUX_ARCH" in
-		aarch64) _ndk_triple="aarch64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
-		arm) _ndk_triple="armv7a-linux-androideabi${TERMUX_PKG_API_LEVEL}" ;;
-		i686) _ndk_triple="i686-linux-android${TERMUX_PKG_API_LEVEL}" ;;
-		x86_64) _ndk_triple="x86_64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
-		*) _ndk_triple="" ;;
+	aarch64) _ndk_triple="aarch64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+	arm) _ndk_triple="armv7a-linux-androideabi${TERMUX_PKG_API_LEVEL}" ;;
+	i686) _ndk_triple="i686-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+	x86_64) _ndk_triple="x86_64-linux-android${TERMUX_PKG_API_LEVEL}" ;;
+	*) _ndk_triple="" ;;
 	esac
 	local _wrap_name _wrap_real _wrap_pat
 	for _wrap_name in "$(basename "$_real_cc")" "$(basename "$_real_cxx")"; do
@@ -431,6 +431,9 @@ exclude_unwind_tables = false
 	mkdir -p $TERMUX_PKG_BUILDDIR/out/Release
 	cat $_common_args_file >$TERMUX_PKG_BUILDDIR/out/Release/args.gn
 	gn gen $TERMUX_PKG_BUILDDIR/out/Release
+	# TEMP-DEBUG: show how libffi enters host links.
+	grep -n "libffi" $TERMUX_PKG_BUILDDIR/out/Release/build.ninja | head -n 10 || true
+	grep -n -A6 "^build host/root_store_tool:" $TERMUX_PKG_BUILDDIR/out/Release/build.ninja | head -n 20 || true
 }
 
 termux_step_make() {
