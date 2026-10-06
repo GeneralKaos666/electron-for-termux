@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,126 @@
+@@ -20,6 +20,132 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -105,6 +105,12 @@
 +      print('TERMUX-DEBUG interp: %r' % (_interp,))
 +    except Exception as _e2:
 +      print('TERMUX-DEBUG interp failed: %r' % (_e2,))
++    try:
++      _st = os.stat(path)
++      print('TERMUX-DEBUG target: abspath=%r size=%d mtime_ns=%d' % (
++          os.path.abspath(path), _st.st_size, _st.st_mtime_ns))
++    except Exception as _e4:
++      print('TERMUX-DEBUG target stat failed: %r' % (_e4,))
 +    try:
 +      _env = dict(os.environ)
 +      _env['LD_DEBUG'] = 'libs,reloc'

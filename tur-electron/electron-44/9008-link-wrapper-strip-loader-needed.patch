@@ -8,7 +8,7 @@
  import subprocess
  import sys
  
-@@ -67,8 +68,113 @@
+@@ -67,8 +68,132 @@
      result = subprocess.call(
          CommandToRun([args.strip, '-o', args.output, args.symbols_file]))
  
@@ -114,8 +114,27 @@
 +      f.write(rest)
 +      f.write(b'\x00' * 16)
 +      f.flush()
-+      print('gcc_link_wrapper: removed DT_NEEDED %s from %s' %
-+            (hit_name.decode('utf-8', 'replace'), os.path.basename(path)))
++      f.seek(dyn_off)
++      check = f.read(count * 16)
++      verified = False
++      for i in range(count):
++        tag, val = struct.unpack('<qQ', check[i * 16:(i + 1) * 16])
++        if tag == _DT_NULL:
++          verified = True
++          break
++        if (tag == _DT_NEEDED and val < len(strtab)
++            and strtab[val:].split(b'\x00', 1)[0] in _LOADER_NEEDED_NAMES):
++          verified = False
++          break
++      try:
++        _st = os.stat(path)
++        _loc = '%s size=%d mtime_ns=%d' % (
++            os.path.abspath(path), _st.st_size, _st.st_mtime_ns)
++      except Exception:
++        _loc = repr(path)
++      print('gcc_link_wrapper: %s DT_NEEDED %s for %s' %
++            ('verified removal of' if verified else 'FAILED to remove',
++             hit_name.decode('utf-8', 'replace'), _loc))
 +  except Exception:
 +    pass  # Never break the link over post-processing.
 +
