@@ -253,6 +253,21 @@ termux_step_configure() {
 	build/linux/sysroot_scripts/install-sysroot.py --sysroots-json-path=electron/script/sysroots.json --arch=i386
 	local _i386_sysroot_path="$(pwd)/build/linux/$(ls build/linux | grep 'i386-sysroot')"
 
+	# The bullseye sysroots' libc.so GROUP injects the dynamic loader as
+	# DT_NEEDED (host links keep it despite the script-level AS_NEEDED).
+	# At runtime the host glibc then relocates a second copy of itself and
+	# dies in elf_machine_rela_relative (RELACOUNT assert), killing host
+	# tools like root_store_tool before main. INTERP already loads ld.so,
+	# so drop the clause from both sysroots' scripts. Host-run binaries
+	# only; the target uses the merged Termux sysroot below and is
+	# untouched. Idempotent if install-sysroot.py reuses a patched tree.
+	for _sr_path in "$_amd64_sysroot_path" "$_i386_sysroot_path"; do
+		_sr_libc_so="$(find "$_sr_path" -name libc.so -path '*lib*' | head -n 1)"
+		if [ -n "$_sr_libc_so" ]; then
+			sed -i 's/AS_NEEDED ([^)]*ld-linux[^)]*)//' "$_sr_libc_so"
+		fi
+	done
+
 	# Link to system tools required by the build
 	mkdir -p third_party/node/linux/node-linux-x64/bin
 	ln -sf $(command -v node) third_party/node/linux/node-linux-x64/bin/
