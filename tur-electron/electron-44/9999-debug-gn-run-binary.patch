@@ -1,0 +1,39 @@
+--- a/build/gn_run_binary.py
++++ b/build/gn_run_binary.py
+@@ -20,6 +20,36 @@
+ if not os.path.isabs(path):
+   path = './' + path
+ 
++# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): name the parent
++# that drags sysroot libffi into host tools, and confirm the static-libffi
++# fix took effect (no libffi NEEDED expected).
++if os.path.basename(path) == 'root_store_tool':
++  try:
++    _readobj = os.path.join(
++        os.path.dirname(os.path.abspath(__file__)), '..', 'third_party',
++        'llvm-build', 'Release+Asserts', 'bin', 'llvm-readobj')
++    _out = subprocess.run(
++        [_readobj, '--dynamic-table', path],
++        capture_output=True,
++        text=True,
++        timeout=60).stdout
++    for _line in _out.splitlines():
++      _s = _line.strip()
++      if 'NEEDED' in _s or 'RUNPATH' in _s or 'RPATH' in _s:
++        print('TERMUX-DEBUG dyn: ' + _s)
++  except Exception as _e:  # never break the build over diagnostics
++    print('TERMUX-DEBUG dyn inspection failed: %r' % (_e,))
++  try:
++    _ldd = subprocess.run(
++        ['ldd', path], capture_output=True, text=True,
++        timeout=60).stdout
++    for _line in _ldd.splitlines():
++      if 'ffi' in _line or 'not found' in _line:
++        print('TERMUX-DEBUG ldd: ' + _line.strip())
++  except Exception as _e:
++    print('TERMUX-DEBUG ldd failed: %r' % (_e,))
++  os.environ['LD_DEBUG'] = 'libs'
++
+ # The rest of the arguments are passed directly to the executable.
+ args = [path] + sys.argv[2:]
+ 

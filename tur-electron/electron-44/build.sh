@@ -436,6 +436,11 @@ exclude_unwind_tables = false
 	mkdir -p $TERMUX_PKG_BUILDDIR/out/Release
 	cat $_common_args_file >$TERMUX_PKG_BUILDDIR/out/Release/args.gn
 	gn gen $TERMUX_PKG_BUILDDIR/out/Release
+	# TEMP-DEBUG (reverted after diagnosis): prove the libffi arg took
+	# effect and show exactly how ffi enters the host link.
+	grep -n "libffi" $TERMUX_PKG_BUILDDIR/out/Release/args.gn || true
+	local _dbg_ninja="$(PATH="$(echo "$PATH" | tr ':' '\n' | grep -v 'depot_tools' | paste -sd:)" command -v ninja)"
+	"$_dbg_ninja" -C $TERMUX_PKG_BUILDDIR/out/Release -t commands host/root_store_tool 2>/dev/null | tr ' ' '\n' | grep -i "ffi\|sysroot.*lib.*so" | head -n 20 || true
 }
 
 termux_step_make() {
