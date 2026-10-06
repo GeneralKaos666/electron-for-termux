@@ -1,0 +1,124 @@
+--- a/build/toolchain/gcc_link_wrapper.py
++++ b/build/toolchain/gcc_link_wrapper.py
+@@ -12,6 +12,7 @@
+ 
+ import argparse
+ import os
++import struct
+ import subprocess
+ import sys
+ 
+@@ -67,8 +68,113 @@
+     result = subprocess.call(
+         CommandToRun([args.strip, '-o', args.output, args.symbols_file]))
+ 
++  if result == 0:
++    _DropLoaderNeeded(args.output)
++
+   return result
+ 
+ 
++# Termux electron-44 bringup: executables linked against the bullseye
++# sysroot record DT_NEEDED for the dynamic loader itself (libc.so's GROUP
++# ... AS_NEEDED (ld-linux...) clause survives because the reference is
++# real). At startup the host glibc then relocates a second copy of itself
++# and dies in elf_machine_rela_relative (RELACOUNT assert), killing host
++# tools before main. INTERP already loads ld.so, and executables resolve
++# its symbols via the global scope, so drop that entry here. Shared
++# libraries keep theirs (their links enforce -z defs and load fine through
++# dlopen). No-op unless the exact loader soname is present, so target
++# (Bionic) links are untouched.
++_LOADER_NEEDED_NAMES = (b'ld-linux-x86-64.so.2', b'ld-linux.so.2')
++
++_DT_NULL = 0
++_DT_NEEDED = 1
++_DT_STRTAB = 5
++_DT_STRSZ = 10
++_PT_LOAD = 1
++_PT_DYNAMIC = 2
++_EM_386 = 3
++_EM_X86_64 = 62
++
++
++def _DropLoaderNeeded(path):
++  """Remove a DT_NEEDED entry for ld.so itself by shifting .dynamic down."""
++  try:
++    with open(path, 'r+b') as f:
++      ehdr = f.read(64)
++      if (len(ehdr) < 64 or ehdr[0:4] != b'\x7fELF' or ehdr[4] != 2
++          or ehdr[5] != 1):
++        return  # Not a little-endian 64-bit ELF.
++      if struct.unpack('<H', ehdr[18:20])[0] not in (_EM_386, _EM_X86_64):
++        return
++      phoff = struct.unpack('<Q', ehdr[0x20:0x28])[0]
++      phentsize = struct.unpack('<H', ehdr[0x36:0x38])[0]
++      phnum = struct.unpack('<H', ehdr[0x38:0x3A])[0]
++      loads = []
++      dyn_off = None
++      dyn_size = 0
++      for i in range(phnum):
++        f.seek(phoff + i * phentsize)
++        phdr = f.read(phentsize)
++        if len(phdr) < 56:
++          return
++        p_type = struct.unpack('<I', phdr[0:4])[0]
++        if p_type == _PT_LOAD:
++          loads.append((struct.unpack('<Q', phdr[8:16])[0],
++                        struct.unpack('<Q', phdr[16:24])[0],
++                        struct.unpack('<Q', phdr[32:40])[0]))
++        elif p_type == _PT_DYNAMIC:
++          dyn_off = struct.unpack('<Q', phdr[8:16])[0]
++          dyn_size = struct.unpack('<Q', phdr[32:40])[0]
++      if dyn_off is None or dyn_size < 16:
++        return
++      count = dyn_size // 16
++      f.seek(dyn_off)
++      dyn = f.read(count * 16)
++      if len(dyn) < count * 16:
++        return
++      tags = [
++          struct.unpack('<qQ', dyn[i * 16:(i + 1) * 16]) for i in range(count)
++      ]
++      strtab_va = None
++      strsz = 0
++      for (tag, val) in tags:
++        if tag == _DT_STRTAB:
++          strtab_va = val
++        elif tag == _DT_STRSZ:
++          strsz = val
++      if strtab_va is None or not strsz:
++        return
++      strtab_off = None
++      for (seg_off, seg_va, seg_size) in loads:
++        if seg_va <= strtab_va < seg_va + seg_size:
++          strtab_off = seg_off + (strtab_va - seg_va)
++          break
++      if strtab_off is None:
++        return
++      f.seek(strtab_off)
++      strtab = f.read(strsz)
++      hit = None
++      hit_name = None
++      for i, (tag, val) in enumerate(tags):
++        if tag != _DT_NEEDED or val >= len(strtab):
++          continue
++        name = strtab[val:].split(b'\x00', 1)[0]
++        if name in _LOADER_NEEDED_NAMES:
++          hit = i
++          hit_name = name
++          break
++      if hit is None:
++        return
++      rest = dyn[(hit + 1) * 16:]
++      f.seek(dyn_off + hit * 16)
++      f.write(rest)
++      f.write(b'\x00' * 16)
++      f.flush()
++      print('gcc_link_wrapper: removed DT_NEEDED %s from %s' %
++            (hit_name.decode('utf-8', 'replace'), os.path.basename(path)))
++  except Exception:
++    pass  # Never break the link over post-processing.
++
++
+ if __name__ == "__main__":
+   sys.exit(main())
