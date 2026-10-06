@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -19,6 +19,45 @@
+@@ -19,6 +19,54 @@
  path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
@@ -39,6 +39,15 @@
 +    print('TERMUX-DEBUG boundary[4230:4242]: %r' %
 +          ([(i, _at.get(i)) for i in range(4230, 4242)],))
 +    print('TERMUX-DEBUG env: LD_LIBRARY_PATH=%r LD_PRELOAD=%r' % (os.environ.get('LD_LIBRARY_PATH'), os.environ.get('LD_PRELOAD'),))
++    _out2 = subprocess.run(
++        [_readobj, '--dynamic-table', path],
++        capture_output=True,
++        text=True,
++        timeout=60).stdout
++    for _line in _out2.splitlines():
++      _s = _line.strip()
++      if 'NEEDED' in _s or 'RUNPATH' in _s or 'RPATH' in _s or 'libffi' in _s:
++        print('TERMUX-DEBUG dyn: ' + _s)
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +  # Show exactly which relocation the loader chokes on.
