@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,87 @@
+@@ -20,6 +20,126 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -8,9 +8,10 @@
 +# trips the loader RELACOUNT assert while its .rela.dyn section view is
 +# clean, so dump loader-visible metadata to find the divergence: the FULL
 +# dynamic table (spot duplicate/conflicting tags), section VMAs/sizes,
-+# and program headers (PT_DYNAMIC vaddr, PT_LOAD ranges to cross-check
-+# DT_RELA/DT_JMPREL against section addresses). Read-only; never fails
-+# the build.
++# program headers (PT_DYNAMIC vaddr, PT_LOAD ranges), reloc summary, the
++# PT_INTERP bytes (which ld.so actually runs), plus an LD_DEBUG=libs,reloc
++# diagnostic run (processing order: deps vs silent exe bootstrap).
++# Read-only; never fails the build.
 +if os.path.basename(path) == 'root_store_tool':
 +  try:
 +    _bd = os.path.dirname(os.path.abspath(__file__))
@@ -82,6 +83,44 @@
 +          _first_odd = (_idx, _p[1], _p[0])
 +    print('TERMUX-DEBUG reloc counts: %r' % (_counts,))
 +    print('TERMUX-DEBUG first non-relative in .rela.dyn: %r' % (_first_odd,))
++    _interp = None
++    try:
++      import struct as _st
++      with open(path, 'rb') as _f:
++        _e = _f.read(64)
++        if _e[0:4] == b'\x7fELF' and _e[4] == 2 and _e[5] == 1:
++          _phoff = _st.unpack('<Q', _e[0x20:0x28])[0]
++          _phentsz = _st.unpack('<H', _e[0x36:0x38])[0]
++          _phnum = _st.unpack('<H', _e[0x38:0x3A])[0]
++          for _i in range(_phnum):
++            _f.seek(_phoff + _i * _phentsz)
++            _p = _f.read(_phentsz)
++            if _st.unpack('<I', _p[0:4])[0] == 3:
++              _off = _st.unpack('<Q', _p[8:16])[0]
++              _sz = _st.unpack('<Q', _p[32:40])[0]
++              _f.seek(_off)
++              _interp = _f.read(_sz).split(b'\x00')[0].decode(
++                  'utf-8', 'replace')
++              break
++      print('TERMUX-DEBUG interp: %r' % (_interp,))
++    except Exception as _e2:
++      print('TERMUX-DEBUG interp failed: %r' % (_e2,))
++    try:
++      _env = dict(os.environ)
++      _env['LD_DEBUG'] = 'libs,reloc'
++      _ld = subprocess.run(
++          [path] + sys.argv[2:],
++          capture_output=True, text=True, timeout=120, env=_env).stderr
++      _n = 0
++      for _line in _ld.splitlines():
++        if ('relocation processing' in _line or 'opening file' in _line
++            or 'Inconsistency' in _line or 'search path' in _line):
++          if _n < 60:
++            print('TERMUX-DEBUG ld: ' + _line.strip()[:200])
++          _n += 1
++      print('TERMUX-DEBUG ld lines matched: %d' % (_n,))
++    except Exception as _e3:
++      print('TERMUX-DEBUG ld run failed: %r' % (_e3,))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
