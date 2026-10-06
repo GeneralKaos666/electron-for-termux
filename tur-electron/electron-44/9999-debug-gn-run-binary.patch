@@ -1,14 +1,16 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,57 @@
+@@ -20,6 +20,87 @@
  if not os.path.isabs(path):
    path = './' + path
  
-+# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): the libffi
-+# lead is dead (NEEDED/ldd/LD_DEBUG=libs all clean) yet the RELACOUNT
-+# assert persists, so dump the CURRENT binary's own relocation layout:
-+# RELACOUNT value, reloc type counts, first non-RELATIVE index in
-+# .rela.dyn, RELR/CREL section presence, and embedded ffi symbols.
++# TEMP-DEBUG (Termux electron-44 bringup, to be reverted): root_store_tool
++# trips the loader RELACOUNT assert while its .rela.dyn section view is
++# clean, so dump loader-visible metadata to find the divergence: the FULL
++# dynamic table (spot duplicate/conflicting tags), section VMAs/sizes,
++# and program headers (PT_DYNAMIC vaddr, PT_LOAD ranges to cross-check
++# DT_RELA/DT_JMPREL against section addresses). Read-only; never fails
++# the build.
 +if os.path.basename(path) == 'root_store_tool':
 +  try:
 +    _bd = os.path.dirname(os.path.abspath(__file__))
@@ -20,11 +22,47 @@
 +        capture_output=True, text=True, timeout=60).stdout
 +    for _line in _dyn.splitlines():
 +      _s = _line.strip()
-+      for _k in ('NEEDED', 'RUNPATH', 'RPATH', 'RELACOUNT', 'RELA',
-+                 'REL', 'BIND_NOW', 'FLAGS'):
-+        if _k in _s:
-+          print('TERMUX-DEBUG dyn: ' + _s)
-+          break
++      if _s and not _s.startswith(('File:', 'Format:', 'Arch:',
++                                   'DynamicSection')):
++        print('TERMUX-DEBUG dyn-full: ' + _s)
++    _sh = subprocess.run(
++        [_readobj, '--sections', path],
++        capture_output=True, text=True, timeout=60).stdout
++    _rec = {}
++    def _flush():
++      if _rec.get('Name'):
++        print('TERMUX-DEBUG section: name=%(Name)s addr=%(Address)s '
++              'size=%(Size)s offset=%(Offset)s' % _rec)
++      _rec.clear()
++    for _line in _sh.splitlines():
++      _s = _line.strip()
++      for _k in ('Name:', 'Address:', 'Size:', 'Offset:'):
++        if _s.startswith(_k):
++          _v = _s[len(_k):].strip().split()[0]
++          if _k == 'Name:':
++            _flush()
++          _rec[_k[:-1]] = _v
++    _flush()
++    _ph = subprocess.run(
++        [_readobj, '--program-headers', path],
++        capture_output=True, text=True, timeout=60).stdout
++    _rec = {}
++    def _flush_ph():
++      if _rec.get('Type'):
++        print('TERMUX-DEBUG phdr: type=%(Type)s off=%(Offset)s '
++              'vaddr=%(VirtualAddress)s filesz=%(FileSize)s '
++              'memsz=%(MemSize)s' % _rec)
++      _rec.clear()
++    for _line in _ph.splitlines():
++      _s = _line.strip()
++      for _k in ('Type:', 'Offset:', 'VirtualAddress:', 'FileSize:',
++                 'MemSize:'):
++        if _s.startswith(_k):
++          _v = _s[len(_k):].strip().split()[0]
++          if _k == 'Type:':
++            _flush_ph()
++          _rec[_k[:-1]] = _v
++    _flush_ph()
 +    _rel = subprocess.run(
 +        [_readobj, '--relocations', path],
 +        capture_output=True, text=True, timeout=120).stdout
@@ -33,7 +71,6 @@
 +      _s = _line.strip()
 +      if _s.startswith('Section '):
 +        _sec, _idx = _s, -1
-+        print('TERMUX-DEBUG section: ' + _s)
 +        continue
 +      _p = _s.split()
 +      if len(_p) >= 2 and _p[0].startswith('0x'):
@@ -45,13 +82,6 @@
 +          _first_odd = (_idx, _p[1], _p[0])
 +    print('TERMUX-DEBUG reloc counts: %r' % (_counts,))
 +    print('TERMUX-DEBUG first non-relative in .rela.dyn: %r' % (_first_odd,))
-+    _nm = subprocess.run(
-+        ['llvm-nm', path], capture_output=True, text=True,
-+        timeout=60).stdout
-+    _ffi = sorted({l.split()[-1] for l in _nm.splitlines()
-+                   if ' ffi_' in l or ' FFI_' in l})
-+    print('TERMUX-DEBUG embedded ffi symbols: %d e.g. %r'
-+          % (len(_ffi), _ffi[:5]))
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
