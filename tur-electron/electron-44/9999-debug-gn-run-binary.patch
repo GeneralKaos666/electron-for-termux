@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,245 @@
+@@ -20,6 +20,250 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -227,9 +227,14 @@
 +    try:
 +      _env = dict(os.environ)
 +      _env['LD_DEBUG'] = 'libs,reloc'
-+      _ld = subprocess.run(
++      _ldp = subprocess.run(
 +          [path] + sys.argv[2:],
-+          capture_output=True, text=True, timeout=120, env=_env).stderr
++          capture_output=True, text=True, timeout=120, env=_env)
++      _ld = _ldp.stderr
++      print('TERMUX-DEBUG ld returncode: %r' % (_ldp.returncode,))
++      _tail = _ld.splitlines()[-3:]
++      for _tl in _tail:
++        print('TERMUX-DEBUG ld tail: ' + _tl.strip()[:200])
 +      _n = 0
 +      for _line in _ld.splitlines():
 +        if ('relocation processing' in _line or 'opening file' in _line
