@@ -30,14 +30,19 @@ Chromium 152). See the commit history for the porting progress
 
 - [x] 61 patches rebased, dry-run CLEAN vs pinned DEPS
 - [x] `gn gen` green (40016 targets)
-- [ ] Fix `host/root_store_tool` loader assert
+- [x] Fix `host/root_store_tool` loader assert
   (`elf_machine_rela_relative`, exit 127)
-  - Falsified so far: sysroot `libffi` stub (old runs), `DT_NEEDED`
-    `ld-linux` second-copy (entry gone, assert persists), section-view
-    counts (all compliant).
-  - Current experiment (round 14): zero `DT_RELACOUNT` pre-exec so the
-    loader resolves symbolically; permanent fix + probe revert after green.
+  - Root cause: orphaned `0007` patch preloaded the sysroot libffi.so.7
+    link stub (dangling DT_RELA + RELACOUNT=20) into every `./host/` tool;
+    its own relocation asserted before the tool's map started.
+  - Fix: static host libffi (`42e5f50`) + delete the LD_PRELOAD half
+    (`da560e0`). Verified in run `37607641031`: 0 ld.so asserts, gated trio
+    passed (`preexec RELACOUNT-on-disk=0`), build advanced 1h04m past the
+    historical failure point.
+  - `9999` probe still active; revert after full-build green.
 - [ ] Triage remaining ninja failures to full electron link
+  - Current blocker: `net/cookies/cookie_util.cc` iterator types on Termux
+    libc++ (`std::string::const_iterator` = `__wrap_iter`); fixed by `1021`.
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
