@@ -32,6 +32,11 @@ Chromium 152). See the commit history for the porting progress
 - [x] `gn gen` green (40016 targets)
 - [ ] Fix `host/root_store_tool` loader assert
   (`elf_machine_rela_relative`, exit 127)
+  - Falsified so far: sysroot `libffi` stub (old runs), `DT_NEEDED`
+    `ld-linux` second-copy (entry gone, assert persists), section-view
+    counts (all compliant).
+  - Current experiment (round 14): zero `DT_RELACOUNT` pre-exec so the
+    loader resolves symbolically; permanent fix + probe revert after green.
 - [ ] Triage remaining ninja failures to full electron link
 - [ ] Zip/deb artifacts produced, CI green
 
