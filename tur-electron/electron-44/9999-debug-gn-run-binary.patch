@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,255 @@
+@@ -20,6 +20,279 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -12,7 +12,7 @@
 +# PT_INTERP bytes (which ld.so actually runs), plus an LD_DEBUG=libs,reloc
 +# diagnostic run (processing order: deps vs silent exe bootstrap).
 +# Read-only; never fails the build.
-+if os.path.basename(path) == 'root_store_tool':
++if os.path.basename(path) in ('root_store_tool', 'signer_set_tool'):
 +  try:
 +    _bd = os.path.dirname(os.path.abspath(__file__))
 +    _readobj = os.path.join(
@@ -252,6 +252,30 @@
 +
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
++
++  # TEMP-DEBUG round 17: run with LD_DEBUG=reloc,libs and LD_DEBUG_OUTPUT
++  # so the LAST "relocation processing:" marker names the map that was
++  # being relocated when the loader assert fires. 'libs' also shows which
++  # exact file resolves each NEEDED (notably libgcc_s.so.1).
++  try:
++    _dbgp = os.path.join(
++        os.getcwd(), 'lddebug-%s.log' % os.path.basename(path))
++    if os.path.exists(_dbgp):
++      os.unlink(_dbgp)
++    _denv = dict(os.environ)
++    _denv['LD_DEBUG'] = 'reloc,libs'
++    _denv['LD_DEBUG_OUTPUT'] = _dbgp
++    _dr = subprocess.call([path] + sys.argv[2:], env=_denv)
++    print('TERMUX-DEBUG lddebug: rc=%r file=%s present=%s' % (
++        _dr, _dbgp, os.path.exists(_dbgp)), flush=True)
++    _dl = []
++    with open(_dbgp, 'rb') as _f:
++      _dl = _f.read().decode('utf-8', 'replace').splitlines()
++    print('TERMUX-DEBUG lddebug: %d lines; last 40 lines follow' % len(_dl), flush=True)
++    for _ln in _dl[-40:]:
++      print('TERMUX-DEBUG lddebug: %s' % (_ln,), flush=True)
++  except Exception as _ex:
++    print('TERMUX-DEBUG lddebug error: %r' % (_ex,), flush=True)
 +
  # The rest of the arguments are passed directly to the executable.
  args = [path] + sys.argv[2:]
