@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,7 +20,322 @@ path = sys.argv[1]
+@@ -20,9 +20,325 @@ path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
  
@@ -316,10 +316,13 @@
 +  # streaming to inherited stderr so the last "relocation processing:"
 +  # marker before the assert names the map being relocated at the crash.
 +  # If it passes instead, LD_DEBUG is the gate at execv — equally decisive.
-+  # Reverted after diagnosis. The stock os.execv below is the non-gated path.
++  # Reverted after diagnosis. The stock subprocess.call fall-through below
++  # is the non-gated path.
 +  _xv = dict(os.environ)
 +  _xv['LD_DEBUG'] = 'reloc,libs'
 +  _xv.pop('LD_DEBUG_OUTPUT', None)
 +  os.execve(args[0], args, _xv)
 +
- os.execv(args[0], args)
+ ret = subprocess.call(args)
+ if ret != 0:
+   if ret <= -100:
