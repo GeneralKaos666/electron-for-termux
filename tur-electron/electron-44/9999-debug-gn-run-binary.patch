@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,132 @@
+@@ -20,6 +20,203 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -18,6 +18,77 @@
 +    _readobj = os.path.join(
 +        _bd, '..', 'third_party', 'llvm-build', 'Release+Asserts',
 +        'bin', 'llvm-readobj')
++    # TEMP-DEBUG round 12: the link-time strip verified yet the entry
++    # reappears at exec with identical mtime. Strip here, milliseconds
++    # before exec, so no link/action gap can interpose. Reverted after.
++    try:
++      import struct as _st2
++      _rp = os.path.abspath(path)
++      _rhit = None
++      with open(_rp, 'r+b') as _f2:
++        _eh = _f2.read(64)
++        if (len(_eh) == 64 and _eh[0:4] == bytes([0x7f]) + b'ELF'
++            and _eh[4] == 2 and _eh[5] == 1
++            and _st2.unpack('<H', _eh[18:20])[0] in (3, 62)):
++          _pho = _st2.unpack('<Q', _eh[0x20:0x28])[0]
++          _phe = _st2.unpack('<H', _eh[0x36:0x38])[0]
++          _phn = _st2.unpack('<H', _eh[0x38:0x3A])[0]
++          _loads = []
++          _doff = None
++          _dsz = 0
++          for _ii in range(_phn):
++            _f2.seek(_pho + _ii * _phe)
++            _pp = _f2.read(_phe)
++            if len(_pp) < 56:
++              break
++            _pt = _st2.unpack('<I', _pp[0:4])[0]
++            if _pt == 1:
++              _loads.append((_st2.unpack('<Q', _pp[8:16])[0],
++                             _st2.unpack('<Q', _pp[16:24])[0],
++                             _st2.unpack('<Q', _pp[32:40])[0]))
++            elif _pt == 2:
++              _doff = _st2.unpack('<Q', _pp[8:16])[0]
++              _dsz = _st2.unpack('<Q', _pp[32:40])[0]
++          if _doff is not None and _dsz >= 16:
++            _cnt = _dsz // 16
++            _f2.seek(_doff)
++            _dd = _f2.read(_cnt * 16)
++            _tags = [_st2.unpack('<qQ', _dd[i * 16:(i + 1) * 16])
++                     for i in range(_cnt)]
++            _stva = None
++            _ssz = 0
++            for (_tt, _vv) in _tags:
++              if _tt == 5:
++                _stva = _vv
++              elif _tt == 10:
++                _ssz = _vv
++            if _stva is not None and _ssz:
++              _soff = None
++              for (_so, _sa, _ss) in _loads:
++                if _sa <= _stva < _sa + _ss:
++                  _soff = _so + (_stva - _sa)
++                  break
++              if _soff is not None:
++                _f2.seek(_soff)
++                _stab = _f2.read(_ssz)
++                for _i3, (_tt, _vv) in enumerate(_tags):
++                  if _tt != 1 or _vv >= len(_stab):
++                    continue
++                  _nm = _stab[_vv:].split(bytes([0]), 1)[0]
++                  if _nm in (b'ld-linux-x86-64.so.2', b'ld-linux.so.2'):
++                    _f2.seek(_doff + _i3 * 16)
++                    _f2.write(_dd[(_i3 + 1) * 16:])
++                    _f2.write(bytes(16))
++                    _f2.flush()
++                    _rhit = _nm
++                    break
++      if _rhit is not None:
++        print('TERMUX-DEBUG runtime-strip: removed %s at exec time' % (
++            _rhit.decode('utf-8', 'replace'),))
++      else:
++        print('TERMUX-DEBUG runtime-strip: no-op (no loader NEEDED at exec)')
++    except Exception as _e5:
++      print('TERMUX-DEBUG runtime-strip failed: %r' % (_e5,))
 +    _dyn = subprocess.run(
 +        [_readobj, '--dynamic-table', path],
 +        capture_output=True, text=True, timeout=60).stdout
