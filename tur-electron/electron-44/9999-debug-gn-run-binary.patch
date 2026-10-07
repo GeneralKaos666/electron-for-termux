@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,203 @@
+@@ -20,6 +20,245 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -89,6 +89,48 @@
 +        print('TERMUX-DEBUG runtime-strip: no-op (no loader NEEDED at exec)')
 +    except Exception as _e5:
 +      print('TERMUX-DEBUG runtime-strip failed: %r' % (_e5,))
++    # TEMP-DEBUG round 14: zero DT_RELACOUNT so the loader skips its
++    # RELACOUNT fast path (which asserts on bytes the section view says
++    # are fine) and resolves everything symbolically. Decisive either way.
++    # Reverted after diagnosis.
++    try:
++      import struct as _st3
++      _rp3 = os.path.abspath(path)
++      _oldrc = None
++      with open(_rp3, 'r+b') as _g:
++        _eh3 = _g.read(64)
++        if (len(_eh3) == 64 and _eh3[0:4] == bytes([0x7f]) + b'ELF'
++            and _eh3[4] == 2 and _eh3[5] == 1):
++          _pho3 = _st3.unpack('<Q', _eh3[0x20:0x28])[0]
++          _phe3 = _st3.unpack('<H', _eh3[0x36:0x38])[0]
++          _phn3 = _st3.unpack('<H', _eh3[0x38:0x3A])[0]
++          _doff3 = None
++          _dsz3 = 0
++          for _jj in range(_phn3):
++            _g.seek(_pho3 + _jj * _phe3)
++            _qq = _g.read(_phe3)
++            if len(_qq) >= 56 and _st3.unpack('<I', _qq[0:4])[0] == 2:
++              _doff3 = _st3.unpack('<Q', _qq[8:16])[0]
++              _dsz3 = _st3.unpack('<Q', _qq[32:40])[0]
++              break
++          if _doff3 is not None and _dsz3 >= 16:
++            _cnt3 = _dsz3 // 16
++            _g.seek(_doff3)
++            _dd3 = _g.read(_cnt3 * 16)
++            for _k3 in range(_cnt3):
++              _tg3, _vl3 = _st3.unpack('<qQ', _dd3[_k3 * 16:(_k3 + 1) * 16])
++              if _tg3 == 0x6ffffff9:
++                _oldrc = _vl3
++                _g.seek(_doff3 + _k3 * 16 + 8)
++                _g.write(_st3.pack('<Q', 0))
++                _g.flush()
++                break
++      if _oldrc is not None:
++        print('TERMUX-DEBUG relacount-zeroed: was %d' % (_oldrc,))
++      else:
++        print('TERMUX-DEBUG relacount-zeroed: no-op (tag absent)')
++    except Exception as _e6:
++      print('TERMUX-DEBUG relacount-zero failed: %r' % (_e6,))
 +    _dyn = subprocess.run(
 +        [_readobj, '--dynamic-table', path],
 +        capture_output=True, text=True, timeout=60).stdout
