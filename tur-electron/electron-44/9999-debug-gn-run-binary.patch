@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,250 @@
+@@ -20,6 +20,255 @@
  if not os.path.isabs(path):
    path = './' + path
  
@@ -224,27 +224,32 @@
 +          os.path.abspath(path), _st.st_size, _st.st_mtime_ns))
 +    except Exception as _e4:
 +      print('TERMUX-DEBUG target stat failed: %r' % (_e4,))
-+    try:
-+      _env = dict(os.environ)
-+      _env['LD_DEBUG'] = 'libs,reloc'
-+      _ldp = subprocess.run(
-+          [path] + sys.argv[2:],
-+          capture_output=True, text=True, timeout=120, env=_env)
-+      _ld = _ldp.stderr
-+      print('TERMUX-DEBUG ld returncode: %r' % (_ldp.returncode,))
-+      _tail = _ld.splitlines()[-3:]
-+      for _tl in _tail:
-+        print('TERMUX-DEBUG ld tail: ' + _tl.strip()[:200])
-+      _n = 0
-+      for _line in _ld.splitlines():
-+        if ('relocation processing' in _line or 'opening file' in _line
-+            or 'Inconsistency' in _line or 'search path' in _line):
-+          if _n < 60:
-+            print('TERMUX-DEBUG ld: ' + _line.strip()[:200])
-+          _n += 1
-+      print('TERMUX-DEBUG ld lines matched: %d' % (_n,))
-+    except Exception as _e3:
-+      print('TERMUX-DEBUG ld run failed: %r' % (_e3,))
++    print('TERMUX-DEBUG envkeys: ' + ','.join(sorted(os.environ)))
++    _variants = [
++        ('baseline', {}),
++        ('baseline-repeat', {}),
++        ('full', {'LD_DEBUG': 'libs,reloc'}),
++        ('reloc-only', {'LD_DEBUG': 'reloc'}),
++        ('libs-only', {'LD_DEBUG': 'libs'}),
++        ('empty', {'LD_DEBUG': ''}),
++        ('dummy', {'TERMUX_PROBE_DUMMY': '1'}),
++    ]
++    for _vn, _ve in _variants:
++      try:
++        _venv = dict(os.environ)
++        _venv.update(_ve)
++        _vr = subprocess.run(
++            [path] + sys.argv[2:],
++            capture_output=True, text=True, timeout=60, env=_venv)
++        _vmsg = ''
++        if _vr.returncode != 0:
++          _vl = _vr.stderr.splitlines()
++          _vmsg = ' last=' + (_vl[-1].strip()[:160] if _vl else '')
++        print('TERMUX-DEBUG envmatrix: %s rc=%r%s' % (_vn, _vr.returncode,
++                                                      _vmsg))
++      except Exception as _vx:
++        print('TERMUX-DEBUG envmatrix: %s error=%r' % (_vn, _vx))
++
 +  except Exception as _e:  # never break the build over diagnostics
 +    print('TERMUX-DEBUG inspection failed: %r' % (_e,))
 +
