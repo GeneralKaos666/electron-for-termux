@@ -1,6 +1,6 @@
 --- a/build/gn_run_binary.py
 +++ b/build/gn_run_binary.py
-@@ -20,6 +20,279 @@
+@@ -20,7 +20,322 @@ path = sys.argv[1]
  if not os.path.isabs(path):
    path = './' + path
  
@@ -277,6 +277,49 @@
 +  except Exception as _ex:
 +    print('TERMUX-DEBUG lddebug error: %r' % (_ex,), flush=True)
 +
++  # TEMP-DEBUG round 18 pre-exec: prove the file STILL has RELACOUNT 0 on
++  # disk at the moment of the crashing exec (kills the 'file restored
++  # between probe and exec' theory), and record pid/fd count. Children
++  # pass under every env; only the final execv asserts.
++  try:
++    import struct as _st9
++    _rcv = None
++    with open(os.path.abspath(path), 'rb') as _f9:
++      _e9 = _f9.read(64)
++      _pho9 = _st9.unpack('<Q', _e9[0x20:0x28])[0]
++      _phe9 = _st9.unpack('<H', _e9[0x36:0x38])[0]
++      _phn9 = _st9.unpack('<H', _e9[0x38:0x3A])[0]
++      for _j9 in range(_phn9):
++        _f9.seek(_pho9 + _j9 * _phe9)
++        _q9 = _f9.read(_phe9)
++        if len(_q9) >= 56 and _st9.unpack('<I', _q9[0:4])[0] == 2:
++          _do9 = _st9.unpack('<Q', _q9[8:16])[0]
++          _ds9 = _st9.unpack('<Q', _q9[32:40])[0]
++          _f9.seek(_do9)
++          for _m9 in range(_ds9 // 16):
++            _tg9, _vl9 = _st9.unpack('<qQ', _f9.read(16))
++            if _tg9 == 0x6ffffff9:
++              _rcv = _vl9
++              break
++    _fds = len(os.listdir('/proc/self/fd'))
++    print('TERMUX-DEBUG preexec: RELACOUNT-on-disk=%r pid=%d fds=%d' % (
++        _rcv, os.getpid(), _fds), flush=True)
++  except Exception as _e9:
++    print('TERMUX-DEBUG preexec failed: %r' % (_e9,), flush=True)
++
  # The rest of the arguments are passed directly to the executable.
  args = [path] + sys.argv[2:]
  
++if os.path.basename(path) in ('root_store_tool', 'signer_set_tool'):
++  # TEMP-DEBUG round 18: only the final execv-style exec asserts (every
++  # child passes regardless of env/LD_DEBUG). Run THAT exec with LD_DEBUG
++  # streaming to inherited stderr so the last "relocation processing:"
++  # marker before the assert names the map being relocated at the crash.
++  # If it passes instead, LD_DEBUG is the gate at execv — equally decisive.
++  # Reverted after diagnosis. The stock os.execv below is the non-gated path.
++  _xv = dict(os.environ)
++  _xv['LD_DEBUG'] = 'reloc,libs'
++  _xv.pop('LD_DEBUG_OUTPUT', None)
++  os.execve(args[0], args, _xv)
++
+ os.execv(args[0], args)
