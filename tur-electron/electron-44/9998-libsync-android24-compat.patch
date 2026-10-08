@@ -1,7 +1,7 @@
-diff --git a/include/ndk/sync.h b/include/ndk/sync.h
+diff --git a/third_party/libsync/src/include/ndk/sync.h b/third_party/libsync/src/include/ndk/sync.h
 index 3787e74..0fd6fdc 100644
---- a/include/ndk/sync.h
-+++ b/include/ndk/sync.h
+--- a/third_party/libsync/src/include/ndk/sync.h
++++ b/third_party/libsync/src/include/ndk/sync.h
 @@ -64,7 +64,7 @@ __BEGIN_DECLS
   *
   * Available since API level 26.
