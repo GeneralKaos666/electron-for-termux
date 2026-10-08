@@ -267,9 +267,17 @@ termux_step_configure() {
 	build/linux/sysroot_scripts/install-sysroot.py --sysroots-json-path=electron/script/sysroots.json --arch=i386
 	local _i386_sysroot_path="$(pwd)/build/linux/$(ls build/linux | grep 'i386-sysroot')"
 
-	# Link to system tools required by the build
-	mkdir -p third_party/node/linux/node-linux-x64/bin
-	ln -sf $(command -v node) third_party/node/linux/node-linux-x64/bin/
+	# Install the chromium-pinned Node binary. A plain `gclient sync` git
+	# checkout does not ship it (the DEPS download is gated on
+	# `non_git_source`), and `//third_party/node:check_version` hard-asserts
+	# the running Node's version against `update_node_binaries` (v24.12.0).
+	# A Termux-node symlink (v24.18.0) fails that assert, so fetch the real
+	# pinned binary (sha256-verified) plus the npm deps, like upstream
+	# electron42 does.
+	if [ ! -f "third_party/node/linux/node-linux-x64/bin/node" ]; then
+		./third_party/node/update_node_binaries
+	fi
+	./third_party/node/update_npm_deps
 
 	# Dummy librt.so
 	# Why not dummy a librt.a? Some of the binaries reference symbols only exists in Android

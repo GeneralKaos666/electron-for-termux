@@ -48,12 +48,22 @@ Chromium 152). See the commit history for the porting progress
     `BUILD.gn`/`*.gni` and unwraps `-Xclang=`/`-mllvm=` tokens into
     whole-token deny entries (`build.sh`, `64c0b1f`) — verified in run
     `37711204662`: build sailed past dawn to the harfbuzz step.
-  - Current blocker: bindgen (harfbuzz `hb_rs_generator`) calls clang
-    directly — bypassing the `ndk-flag-filter` wrapper — with the
-    unversioned `--target=aarch64-linux-gnu`, so `__ANDROID_MIN_SDK_VERSION__`
-    is undefined and the merged sysroot's `sys/cdefs.h` `#error`s.
+  - bindgen (harfbuzz `hb_rs_generator`) called clang directly —
+    bypassing the `ndk-flag-filter` wrapper — with the unversioned
+    `--target=aarch64-linux-gnu`, so `__ANDROID_MIN_SDK_VERSION__`
+    was undefined and the merged sysroot's `sys/cdefs.h` `#error`d.
     Fixed by `9999-sysroot-disable-target-check.diff`, applied over the
-    merged sysroot at construction time (`build.sh`).
+    merged sysroot at construction time (`build.sh`) — verified in run
+    `37729925790`: the build passed bindgen and advanced 1h21m to step
+    14519/80202 (webrtc/viz/crashpad territory).
+  - Current blocker: `//third_party/node:check_version` — the running
+    node (v24.18.0, Termux's `node` symlinked in by the old electron-32
+    trick) must equal `update_node_binaries`'s pin (v24.12.0) or the
+    assert aborts the ninja graph. Fixed by adopting upstream electron42's
+    approach: download the chromium-pinned node binary via
+    `./third_party/node/update_node_binaries` + `update_npm_deps`
+    (`build.sh`). Self-consistent: the checker and downloader read the
+    same `update_node_binaries`.
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
