@@ -1,0 +1,31 @@
+diff --git a/third_party/libsync/src/include/android/ndk/sync.h b/third_party/libsync/src/include/android/ndk/sync.h
+index 6dc0433..0c36236 100644
+--- a/third_party/libsync/src/include/android/ndk/sync.h
++++ b/third_party/libsync/src/include/android/ndk/sync.h
+@@ -64,7 +64,7 @@ __BEGIN_DECLS
+  *
+  * Available since API level 26.
+  */
+-int32_t sync_merge(const char* name, int32_t fd1, int32_t fd2) __INTRODUCED_IN(26);
++int32_t sync_merge(const char* name, int32_t fd1, int32_t fd2) __INTRODUCED_IN(24);
+ 
+ /**
+  * Get the array of file descriptors contained in a fence
+@@ -73,7 +73,7 @@ int32_t sync_merge(const char* name, int32_t fd1, int32_t fd2) __INTRODUCED_IN(26)
+  *
+  * Available since API level 26.
+  */
+-struct sync_file_info* sync_file_info(int32_t fd) __INTRODUCED_IN(26);
++struct sync_file_info* sync_file_info(int32_t fd) __INTRODUCED_IN(24);
+ 
+ /**
+  * Get a fence's fence info
+@@ -97,7 +97,7 @@ struct sync_fence_info* sync_file_info_get_fence_info(const struct sync_file_info
+  *
+  * Available since API level 26.
+  */
+-void sync_file_info_free(struct sync_file_info* info) __INTRODUCED_IN(26);
++void sync_file_info_free(struct sync_file_info* info) __INTRODUCED_IN(24);
+ 
+ __END_DECLS
+ 
