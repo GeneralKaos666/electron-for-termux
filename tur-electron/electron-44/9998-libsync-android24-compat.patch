@@ -1,7 +1,7 @@
-diff --git a/third_party/libsync/src/include/android/ndk/sync.h b/third_party/libsync/src/include/android/ndk/sync.h
-index 6dc0433..0c36236 100644
---- a/third_party/libsync/src/include/android/ndk/sync.h
-+++ b/third_party/libsync/src/include/android/ndk/sync.h
+diff --git a/include/ndk/sync.h b/include/ndk/sync.h
+index 3787e74..0fd6fdc 100644
+--- a/include/ndk/sync.h
++++ b/include/ndk/sync.h
 @@ -64,7 +64,7 @@ __BEGIN_DECLS
   *
   * Available since API level 26.
@@ -11,7 +11,7 @@ index 6dc0433..0c36236 100644
  
  /**
   * Get the array of file descriptors contained in a fence
-@@ -73,7 +73,7 @@ int32_t sync_merge(const char* name, int32_t fd1, int32_t fd2) __INTRODUCED_IN(26)
+@@ -73,7 +73,7 @@ int32_t sync_merge(const char* name, int32_t fd1, int32_t fd2) __INTRODUCED_IN(26);
   *
   * Available since API level 26.
   */
