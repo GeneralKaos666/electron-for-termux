@@ -41,8 +41,11 @@ Chromium 152). See the commit history for the porting progress
     historical failure point.
   - `9999` probe still active; revert after full-build green.
 - [ ] Triage remaining ninja failures to full electron link
-  - Current blocker: `net/cookies/cookie_util.cc` iterator types on Termux
-    libc++ (`std::string::const_iterator` = `__wrap_iter`); fixed by `1021`.
+  - `net/cookies/cookie_util.cc` iterators (Termux libc++ = `__wrap_iter`)
+    fixed by `1021` — verified: build advanced to step 11776/80202.
+  - Current blocker: dawn's `-Xclang=-fno-lifetime-safety-*` flags rejected
+    by the NDK clang; the flag-filter probe now scans the whole tree and
+    wrapped `-Xclang=`/`-mllvm=` tokens (`build.sh`).
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building

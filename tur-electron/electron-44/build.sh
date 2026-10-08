@@ -95,6 +95,12 @@ termux_step_configure() {
 	# strip the rejected ones, so future flag additions degrade to a
 	# re-probe instead of a failed build. Host toolchains use explicit
 	# upstream clang paths and never see these wrappers.
+	# Scan every BUILD.gn/*.gni under the src tree (not just the compiler
+	# configs): component configs (dawn, crashpad, skia, ...) inject their
+	# own -f/-m flags. Flags wrapped in -Xclang=/-mllvm= single tokens
+	# (e.g. "-Xclang=-fno-lifetime-safety-inference") are found via their
+	# inner -f/-m token and denied as the full wrapped token, so the
+	# wrapper drops them in one piece.
 	# Flags are either literals (exact match) or prefixes ending in '='
 	# (for GN-interpolated forms like -fsanitize-ignore-for-ubsan-feature
 	# whose values only exist at gen time); prefixes are probed with an
@@ -105,8 +111,8 @@ termux_step_configure() {
 	mkdir -p "$_ndk_filter_dir"
 	local _real_cc="$CC" _real_cxx="${CXX:-$CC}"
 	local _flag_list _flag_pfx _f _probe_err
-	_flag_list="$(grep -ho '"-[fm][A-Za-z0-9-]*\(=[^"]*\)\?"' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u || true)"
-	_flag_pfx="$(grep -ho '"-[fm][A-Za-z0-9-]*=' build/config/compiler/BUILD.gn build/config/sanitizers/sanitizers.gni | tr -d '"' | sort -u || true)"
+	_flag_list="$(grep -rhoE --include='BUILD.gn' --include='*.gni' --exclude-dir=out -- '-[fm][A-Za-z0-9][A-Za-z0-9-]*(=[^" ]*)?' . 2>/dev/null | sort -u || true)"
+	_flag_pfx="$(grep -rhoE --include='BUILD.gn' --include='*.gni' --exclude-dir=out -- '-[fm][A-Za-z0-9][A-Za-z0-9-]*=' . 2>/dev/null | sort -u || true)"
 	local _deny_file="$_ndk_filter_dir/denylist.txt"
 	local _pfx_file="$_ndk_filter_dir/prefixlist.txt"
 	: >"$_deny_file"
@@ -117,7 +123,11 @@ termux_step_configure() {
 		-mllvm | -Xclang) continue ;;
 		esac
 		if ! echo 'int _termux_probe_flag;' | "$_real_cxx" -x c++ -fsyntax-only "$_f" -o /dev/null - 2>/dev/null; then
-			echo "$_f" >>"$_deny_file"
+			{
+				echo "$_f"
+				echo "-Xclang=$_f"
+				echo "-mllvm=$_f"
+			} >>"$_deny_file"
 		fi
 	done
 	for _f in $_flag_pfx; do
@@ -131,7 +141,11 @@ termux_step_configure() {
 		# set -e/pipefail here.)
 		_probe_err="$(echo 'int _termux_probe_flag;' | "$_real_cxx" -x c++ -fsyntax-only "${_f}test" -o /dev/null - 2>&1)" || true
 		case "$_probe_err" in
-		*"unknown argument"*) echo "$_f" >>"$_pfx_file" ;;
+		*"unknown argument"*) {
+			echo "$_f"
+			echo "-Xclang=$_f"
+			echo "-mllvm=$_f"
+		} >>"$_pfx_file" ;;
 		esac
 	done
 	# Android triple for this build arch; gnu --target args are
