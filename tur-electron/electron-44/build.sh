@@ -304,6 +304,12 @@ termux_step_configure() {
 		# This is needed to build cups
 		cp -Rf $TERMUX_PREFIX/bin/cups-config usr/bin/
 		chmod +x usr/bin/cups-config
+		# bindgen (rust) invokes clang directly without --target, so the
+		# unversioned aarch64-linux-gnu triple leaves __ANDROID_MIN_SDK_VERSION__
+		# undefined and trips a hard #error in the merged sysroot cdefs.h.
+		# Disable that check; the target_os/cpu still resolve via the
+		# sysroot layout (same approach as upstream electron42).
+		patch --silent -p1 -d . <$TERMUX_PKG_BUILDER_DIR/9999-sysroot-disable-target-check.diff
 		popd
 		mv $TERMUX_PKG_TMPDIR/sysroot $TERMUX_PKG_CACHEDIR/sysroot-$TERMUX_ARCH
 	fi

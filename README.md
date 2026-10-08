@@ -43,9 +43,17 @@ Chromium 152). See the commit history for the porting progress
 - [ ] Triage remaining ninja failures to full electron link
   - `net/cookies/cookie_util.cc` iterators (Termux libc++ = `__wrap_iter`)
     fixed by `1021` — verified: build advanced to step 11776/80202.
-  - Current blocker: dawn's `-Xclang=-fno-lifetime-safety-*` flags rejected
-    by the NDK clang; the flag-filter probe now scans the whole tree and
-    wrapped `-Xclang=`/`-mllvm=` tokens (`build.sh`).
+  - dawn's `-Xclang=-fno-lifetime-safety-*` flags rejected by the NDK
+    clang; fixed by the flag-filter probe, which now scans every
+    `BUILD.gn`/`*.gni` and unwraps `-Xclang=`/`-mllvm=` tokens into
+    whole-token deny entries (`build.sh`, `64c0b1f`) — verified in run
+    `37711204662`: build sailed past dawn to the harfbuzz step.
+  - Current blocker: bindgen (harfbuzz `hb_rs_generator`) calls clang
+    directly — bypassing the `ndk-flag-filter` wrapper — with the
+    unversioned `--target=aarch64-linux-gnu`, so `__ANDROID_MIN_SDK_VERSION__`
+    is undefined and the merged sysroot's `sys/cdefs.h` `#error`s.
+    Fixed by `9999-sysroot-disable-target-check.diff`, applied over the
+    merged sysroot at construction time (`build.sh`).
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
