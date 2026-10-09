@@ -1,0 +1,31 @@
+diff --git a/ui/gfx/paint_vector_icon.cc b/ui/gfx/paint_vector_icon.cc
+index 0000000..0000000 100644
+--- a/ui/gfx/paint_vector_icon.cc
++++ b/ui/gfx/paint_vector_icon.cc
+@@ -235,7 +235,7 @@ void PaintVectorIcon(gfx::Canvas* canvas,
+       const auto& path = icon.paths[path_index];
+       // TODO(crbug.com/338549914): getLastPt() returns optional in SkPath
+       // version after m115.
+-      const SkPoint last_point = path.getLastPt().value_or({0, 0});
++      const SkPoint last_point = path.getLastPt().value_or(SkPoint{0, 0});
+       for (size_t i = 0; i < commands.size(); ++i) {
+         const auto& command = commands[i];
+         auto point = last_point + command.point;
+@@ -245,7 +245,7 @@ void PaintVectorIcon(gfx::Canvas* canvas,
+     } else {
+       const auto& path = icon.paths[path_index];
+       // TODO(crbug.com/338549914): getLastPt() returns optional in SkPath.
+-      const SkPoint last_point = path.getLastPt().value_or({0, 0});
++      const SkPoint last_point = path.getLastPt().value_or(SkPoint{0, 0});
+       for (size_t i = 0; i < commands.size(); ++i) {
+         const auto& command = commands[i];
+         auto point = last_point + command.point;
+@@ -273,7 +273,7 @@ void PaintVectorIcon(gfx::Canvas* canvas,
+     } else {
+       const auto& path = icon.paths[path_index];
+       // TODO(crbug.com/338549914): getLastPt() returns optional in SkPath.
+-      const SkPoint last_point = path.getLastPt().value_or({0, 0});
++      const SkPoint last_point = path.getLastPt().value_or(SkPoint{0, 0});
+       for (size_t i = 0; i < commands.size(); ++i) {
+         const auto& command = commands[i];
+         auto point = last_point + command.point;
