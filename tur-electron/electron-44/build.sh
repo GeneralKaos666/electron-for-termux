@@ -149,10 +149,16 @@ termux_step_patch_package() {
 		# and "with fuzz" messages this check depends on.
 		_rc=0
 		_out="$(patch -p1 <"$_sed_patch" 2>&1)" || _rc=$?
-		if [ "$_rc" -ne 0 ] || printf '%s\n' "$_out" | grep -qE 'FAILED|Reversed|already applied|malformed|garbage|find file|with fuzz|out of [0-9]+ hunks|ignored|Skipping patch|Assume -R|Apply anyway'; then
+		if [ "$_rc" -ne 0 ] || printf '%s\n' "$_out" | grep -qE 'FAILED|Reversed|already applied|malformed|garbage|find file|out of [0-9]+ hunks|ignored|Skipping patch|Assume -R|Apply anyway'; then
 			echo "[ERROR]: $(basename "$patch") did not apply cleanly (rc=$_rc):" >&2
 			printf '%s\n' "$_out" >&2
 			exit 1
+		fi
+		# Fuzzy application still lands the change, so it is not fatal, but
+		# it means the context has drifted and is worth surfacing.
+		if printf '%s\n' "$_out" | grep -q 'with fuzz'; then
+			echo "[WARN]: $(basename "$patch") applied with fuzz - context may be stale:" >&2
+			printf '%s\n' "$_out" >&2
 		fi
 	done
 	rm -rf "$TERMUX_PKG_TMPDIR/patch-validate"
