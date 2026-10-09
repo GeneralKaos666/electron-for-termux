@@ -167,13 +167,15 @@ termux_step_patch_package() {
 
 # Termux's bionic toolchain setup exports GOOS=android/GOARCH=<target>, which
 # is right for Go programs built for the target but wrong for the build-time
-# HOST tools Chromium compiles.  The dawn target runs
+# HOST tools Chromium compiles.  The dawn/tint targets run
 # third_party/dawn/tools/generate-sources-gn.py, which invokes a CIPD-provisioned
 # host Go toolchain via `go run`; with GOOS/GOARCH still pointing at android/
 # aarch64 it cross-compiles that host tool and the x86_64 builder then fails to
 # exec it ("fork/exec .../sources: exec format error").  This step runs after
 # termux_step_setup_toolchain, so dropping the values here makes every host Go
 # build default to the host platform.
+# NOTE: build-package.sh skips this function on a continued build (-c), so
+# termux_step_make clears the same variables again right before ninja.
 termux_step_pre_configure() {
 	unset GOOS GOARCH GOARM
 }
@@ -568,6 +570,13 @@ exclude_unwind_tables = false
 }
 
 termux_step_make() {
+	# build-package.sh re-runs termux_step_setup_toolchain even for a continued
+	# build (-c), which re-exports GOOS=android/GOARCH=<target>, but it skips
+	# termux_step_pre_configure there, so those values would leak into ninja.
+	# The dawn/tint host Go tools would then cross-compile and fail with
+	# "exec format error".  Clear them unconditionally before ninja; see the
+	# note at termux_step_pre_configure.
+	unset GOOS GOARCH GOARM
 	cd $TERMUX_PKG_BUILDDIR
 	# depot_tools' ninja.py wrapper aborts with "Could not find checkout"
 	# because our build dir is a sibling of src, so resolve the real ninja
