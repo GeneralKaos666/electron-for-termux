@@ -257,6 +257,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -340,6 +356,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -423,6 +455,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -506,6 +554,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -589,6 +653,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -672,6 +752,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -755,6 +851,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
@@ -837,6 +949,22 @@ jobs:
         rm -rf ./main-repo
         cp -rn ./tur-repo/* ./
         rm -rf ./tur-repo
+        # Mirror setup-tur-electron-builder.sh: apply the building-system
+        # patches after merging. Without them, scripts/run-docker.sh keeps the
+        # restricted AppArmor profile, which makes sudo-rs (bundled in the
+        # builder image) panic with "could not restore to saved user id". The
+        # continuous build-deps/status tarballs are then never extracted, so the
+        # resumed build dies with a missing $TERMUX_PKG_TMPDIR.
+        shopt -s nullglob
+        for _patch in ./common-files/building-system-patches/*.patch; do
+          echo "Applying patch: $_patch"
+          patch --silent -p1 < "$_patch"
+        done
+        shopt -u nullglob
+        if [ -f ./common-files/override-packages.txt ]; then
+          xargs -r rm -rfv -- < ./common-files/override-packages.txt
+        fi
+        rm -f build-package.sh.orig
     - name: Free additional disk space
       run: |
         sudo apt purge -yq $(dpkg -l | grep '^ii' | awk '{ print $2 }' | grep -P '(cabal-|dotnet-|ghc-|libmono|php|aspnetcore)') \
