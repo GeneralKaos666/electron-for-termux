@@ -165,6 +165,19 @@ termux_step_patch_package() {
 	shopt -u nullglob
 }
 
+# Termux's bionic toolchain setup exports GOOS=android/GOARCH=<target>, which
+# is right for Go programs built for the target but wrong for the build-time
+# HOST tools Chromium compiles.  The dawn target runs
+# third_party/dawn/tools/generate-sources-gn.py, which invokes a CIPD-provisioned
+# host Go toolchain via `go run`; with GOOS/GOARCH still pointing at android/
+# aarch64 it cross-compiles that host tool and the x86_64 builder then fails to
+# exec it ("fork/exec .../sources: exec format error").  This step runs after
+# termux_step_setup_toolchain, so dropping the values here makes every host Go
+# build default to the host platform.
+termux_step_pre_configure() {
+	unset GOOS GOARCH GOARM
+}
+
 termux_step_configure() {
 	cd $TERMUX_PKG_SRCDIR
 	termux_setup_ninja
