@@ -82,6 +82,83 @@ termux_step_post_get_source() {
 	fi
 }
 
+# Expand a builder patch exactly like upstream's patch step does, so the
+# validator and the real application see byte-identical input.
+__tur_patch_expand() {
+	sed \
+		-e "s%\@TERMUX_APP_PACKAGE\@%${TERMUX_APP_PACKAGE}%g" \
+		-e "s%\@TERMUX_BASE_DIR\@%${TERMUX_BASE_DIR}%g" \
+		-e "s%\@TERMUX_CACHE_DIR\@%${TERMUX_CACHE_DIR}%g" \
+		-e "s%\@TERMUX_HOME\@%${TERMUX_ANDROID_HOME}%g" \
+		-e "s%\@TERMUX_PREFIX\@%${TERMUX_PREFIX}%g" \
+		-e "s%\@TERMUX_PREFIX_CLASSICAL\@%${TERMUX_PREFIX_CLASSICAL}%g" \
+		-e "s%\@TERMUX_ENV__S_TERMUX\@%${TERMUX_ENV__S_TERMUX}%g" \
+		-e "s%\@TERMUX_ENV__S_TERMUX_APP\@%${TERMUX_ENV__S_TERMUX_APP}%g" \
+		-e "s%\@TERMUX_ENV__S_TERMUX_API_APP\@%${TERMUX_ENV__S_TERMUX_API_APP}%g" \
+		-e "s%\@TERMUX_ENV__S_TERMUX_ROOTFS\@%${TERMUX_ENV__S_TERMUX_ROOTFS}%g" \
+		-e "s%\@TERMUX_ENV__S_TERMUX_EXEC\@%${TERMUX_ENV__S_TERMUX_EXEC}%g" \
+		"$@"
+}
+
+# Apply the builder patches, aborting the build the moment one would be
+# applied incorrectly.
+#
+# GNU patch discards hunk body lines it cannot account for and still exits
+# 0: a header/body count mismatch drops the tail (and desyncs the parser, so
+# the following hunks vanish with no message) while stale context is applied
+# "with fuzz N" or skipped outright.  r25/r26 hit exactly that - a stale
+# dav1d config patch left HAVE_SVE2 enabled and the build only failed hours
+# later inside dav1d asm.  GNU patch's exit status cannot express any of it,
+# so every patch is verified as it is applied: a malformed hunk is rejected
+# by the structural scan, a dropped/fuzzed hunk by the patch output.  Both
+# fail in seconds instead of three hours later.  The patches are applied in
+# order (patch N sees patches 1..N-1, as upstream does) so the check sees the
+# same tree the compiler eventually will.
+termux_step_patch_package() {
+	[ "$TERMUX_PKG_METAPACKAGE" = "true" ] && return
+
+	cd "$TERMUX_PKG_SRCDIR"
+	# Suffix patch with ".patch32" or ".patch64" to only apply for
+	# these bitnesses
+	local PATCHES=$(find $TERMUX_PKG_BUILDER_DIR -mindepth 1 -maxdepth 1 \
+		-name \*.patch -o -name \*.patch$TERMUX_ARCH_BITS | sort)
+	local DEBUG_PATCHES=""
+	if [ "$TERMUX_DEBUG_BUILD" = "true" ]; then
+		DEBUG_PATCHES=$(find $TERMUX_PKG_BUILDER_DIR -mindepth 1 -maxdepth 1 -name \*.patch.debug | sort)
+	fi
+	local ON_DEVICE_PATCHES=""
+	# .patch.ondevice patches should only be applied when building
+	# on device
+	if [ "$TERMUX_ON_DEVICE_BUILD" = "true" ]; then
+		ON_DEVICE_PATCHES=$(find $TERMUX_PKG_BUILDER_DIR -mindepth 1 -maxdepth 1 -name \*.patch.ondevice | sort)
+	fi
+
+	shopt -s nullglob
+	local patch _sed_patch _out _rc
+	mkdir -p "$TERMUX_PKG_TMPDIR/patch-validate"
+	for patch in $PATCHES $DEBUG_PATCHES $ON_DEVICE_PATCHES; do
+		[ -f "$patch" ] || continue
+		echo "Applying patch: $(basename $patch)"
+		_sed_patch="$TERMUX_PKG_TMPDIR/patch-validate/$(basename "$patch")"
+		__tur_patch_expand "$patch" >"$_sed_patch"
+		if ! python3 "$TERMUX_PKG_BUILDER_DIR/check-patch-hunks.py" "$_sed_patch"; then
+			echo "[ERROR]: $(basename "$patch"): a hunk would lose lines; aborting before build." >&2
+			exit 1
+		fi
+		# patch -p1 without --silent: --silent would hide the "FAILED"
+		# and "with fuzz" messages this check depends on.
+		_rc=0
+		_out="$(patch -p1 <"$_sed_patch" 2>&1)" || _rc=$?
+		if [ "$_rc" -ne 0 ] || printf '%s\n' "$_out" | grep -qE 'FAILED|Reversed|already applied|malformed|garbage|find file|with fuzz|out of [0-9]+ hunks|ignored|Skipping patch|Assume -R|Apply anyway'; then
+			echo "[ERROR]: $(basename "$patch") did not apply cleanly (rc=$_rc):" >&2
+			printf '%s\n' "$_out" >&2
+			exit 1
+		fi
+	done
+	rm -rf "$TERMUX_PKG_TMPDIR/patch-validate"
+	shopt -u nullglob
+}
+
 termux_step_configure() {
 	cd $TERMUX_PKG_SRCDIR
 	termux_setup_ninja
