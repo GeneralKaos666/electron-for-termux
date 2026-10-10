@@ -1,0 +1,20 @@
+--- a/gpu/command_buffer/service/raster_decoder.cc
++++ b/gpu/command_buffer/service/raster_decoder.cc
+@@ -3002,7 +3002,7 @@
+ 
+   auto paint_buffer_opt =
+       GetSharedMemoryAsSpan(raster_shm_id, raster_shm_offset, raster_shm_size);
+-  if (paint_buffer_opt.value_or({}).empty()) {
++  if (paint_buffer_opt.value_or(base::span<volatile uint8_t>{}).empty()) {
+     LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
+                        "Can not read paint buffer.");
+     return;
+@@ -3047,7 +3047,7 @@
+     // Deserialize fonts before raster.
+     auto font_buffer_opt = GetSharedMemoryAsSpan<volatile uint8_t>(
+         font_shm_id, font_shm_offset, font_shm_size);
+-    if (font_buffer_opt.value_or({}).empty()) {
++    if (font_buffer_opt.value_or(base::span<volatile uint8_t>{}).empty()) {
+       LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
+                          "Can not read font buffer.");
+       return;
