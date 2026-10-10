@@ -1,0 +1,19 @@
+--- a/v8/src/wasm/wasm-memory-map-descriptor.cc
++++ b/v8/src/wasm/wasm-memory-map-descriptor.cc
+@@ -14,6 +14,16 @@
+ #undef MAP_TYPE
+ #endif  // V8_OS_LINUX && !V8_OS_ANDROID
+ 
++#if defined(__BIONIC__)
++// Termux compiles v8 for the bionic libc under a Linux target triple, so
++// __ANDROID__ is not defined and the memfd_create() path above is compiled,
++// but the bionic headers only declare the memfd_create() wrapper for recent
++// API levels. Call the syscall directly instead (present on every Android
++// kernel), as the crashpad/weston/wayland memfd_create patches do.
++#include <sys/syscall.h>
++#define memfd_create(name, flags) syscall(SYS_memfd_create, name, flags)
++#endif
++
+ #include "include/cppgc/allocation.h"
+ #include "include/v8-cppgc.h"
+ #include "include/v8-template.h"
