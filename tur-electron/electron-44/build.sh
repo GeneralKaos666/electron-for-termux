@@ -416,8 +416,21 @@ termux_step_configure() {
 		# Disable that check; the target_os/cpu still resolve via the
 		# sysroot layout (same approach as upstream electron42).
 		patch --silent -p1 -d . <$TERMUX_PKG_BUILDER_DIR/9999-sysroot-disable-target-check.diff
+		# The merged sysroot ships released libc++, which declares
+		# optional::value_or as 'template <class _Up>' with no default, so
+		# Chromium's value_or({}) pattern (empty braced-init-list) cannot
+		# deduce _Up and fails to compile all across the tree. Chromium's
+		# bundled trunk libc++ defaults _Up to value_type; apply the same
+		# default to the merged sysroot copy.
+		patch --silent -p1 -d . <$TERMUX_PKG_BUILDER_DIR/9999-sysroot-libcxx-value-or.diff
 		popd
 		mv $TERMUX_PKG_TMPDIR/sysroot $TERMUX_PKG_CACHEDIR/sysroot-$TERMUX_ARCH
+	fi
+	# Mirror the libc++ value_or() fix in the live prefix headers in case a
+	# TU resolves <optional> via the -isystem <prefix>/usr/include path
+	# instead of the merged sysroot copy (idempotent).
+	if [ -f "$TERMUX_PREFIX/include/c++/v1/optional" ]; then
+		perl -0pi -e 's/template <class _Up>\n(  _LIBCPP_HIDE_FROM_ABI constexpr value_type value_or\(_Up&& __v\))/template <class _Up = value_type>\n$1/g' "$TERMUX_PREFIX/include/c++/v1/optional"
 	fi
 
 	# Construct args

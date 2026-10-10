@@ -1,0 +1,19 @@
+--- a/usr/include/c++/v1/optional
++++ b/usr/include/c++/v1/optional
+@@ -849,14 +849,14 @@
+     return std::move(this->__get());
+   }
+ 
+-  template <class _Up>
++  template <class _Up = value_type>
+   _LIBCPP_HIDE_FROM_ABI constexpr value_type value_or(_Up&& __v) const& {
+     static_assert(is_copy_constructible_v<value_type>, "optional<T>::value_or: T must be copy constructible");
+     static_assert(is_convertible_v<_Up, value_type>, "optional<T>::value_or: U must be convertible to T");
+     return this->has_value() ? this->__get() : static_cast<value_type>(std::forward<_Up>(__v));
+   }
+ 
+-  template <class _Up>
++  template <class _Up = value_type>
+   _LIBCPP_HIDE_FROM_ABI constexpr value_type value_or(_Up&& __v) && {
+     static_assert(is_move_constructible_v<value_type>, "optional<T>::value_or: T must be move constructible");
+     static_assert(is_convertible_v<_Up, value_type>, "optional<T>::value_or: U must be convertible to T");
