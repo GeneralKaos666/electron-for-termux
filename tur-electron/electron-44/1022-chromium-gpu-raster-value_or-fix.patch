@@ -5,7 +5,7 @@
    auto paint_buffer_opt =
        GetSharedMemoryAsSpan(raster_shm_id, raster_shm_offset, raster_shm_size);
 -  if (paint_buffer_opt.value_or({}).empty()) {
-+  if (paint_buffer_opt.value_or(base::span<volatile uint8_t>{}).empty()) {
++  if (paint_buffer_opt.value_or(base::span<uint8_t>{}).empty()) {
      LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
                         "Can not read paint buffer.");
      return;
