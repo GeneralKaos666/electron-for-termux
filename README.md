@@ -24,11 +24,14 @@ to carry the patch set forward to current Electron releases.
 
 Active work: `tur-electron/electron-44/` (Electron 44.5.1 /
 Chromium 152). See the commit history for the porting progress
-(patch rebases, toolchain updates, CI fixes).
+(patch rebases, toolchain updates, CI fixes). The build currently
+advances past step 14400/49076 (gpu/command_buffer territory); the
+hosted runner reports status on each push.
 
 ## Build checklist
 
-- [x] 61 patches rebased, dry-run CLEAN vs pinned DEPS
+- [x] 70 patch/diff files for electron-44, each verified with
+  `git apply --check` / `check-patch-hunks.py` before landing
 - [x] `gn gen` green (40016 targets)
 - [x] Fix `host/root_store_tool` loader assert
   (`elf_machine_rela_relative`, exit 127)
@@ -39,31 +42,39 @@ Chromium 152). See the commit history for the porting progress
     (`da560e0`). Verified in run `37607641031`: 0 ld.so asserts, gated trio
     passed (`preexec RELACOUNT-on-disk=0`), build advanced 1h04m past the
     historical failure point.
-  - `9999` probe still active; revert after full-build green.
+  - `9999-debug-gn-run-binary.patch` probe still active; revert after
+    full-build green.
+- [x] `net/cookies/cookie_util.cc` iterators (Termux libc++ = `__wrap_iter`)
+  fixed by `1021`
+- [x] dawn's `-Xclang=-fno-lifetime-safety-*` flags rejected by the NDK
+  clang; fixed by the flag-filter probe, which now scans every
+  `BUILD.gn`/`*.gni` and unwraps `-Xclang=`/`-mllvm=` tokens into
+  whole-token deny entries (`build.sh`, `64c0b1f`)
+- [x] bindgen (harfbuzz `hb_rs_generator`) calls clang directly, bypassing
+  the `ndk-flag-filter` wrapper, with the unversioned
+  `--target=aarch64-linux-gnu`, so `__ANDROID_MIN_SDK_VERSION__` was
+  undefined and the merged sysroot's `sys/cdefs.h` `#error`d; fixed by
+  `9999-sysroot-disable-target-check.diff` at sysroot construction
+- [x] `//third_party/node:check_version` — the running node (v24.18.0,
+  Termux's `node` symlinked in by the old electron-32 trick) must equal
+  `update_node_binaries`'s pin (v24.12.0) or the assert aborts the ninja
+  graph; fixed by downloading the chromium-pinned node binary via
+  `./third_party/node/update_node_binaries` + `update_npm_deps`
+  (upstream electron42's approach, `build.sh`)
+- [x] libsync `sync_file_info_free` — `__INTRODUCED_IN(26)` in a build
+  targeting Android 24; lowered to `__INTRODUCED_IN(24)` in libsync's
+  `ndk/sync.h` (`9998-libsync-android24-compat.patch`)
+- [x] `optional::value_or({})` deduction class — this build uses released
+  libc++ (`use_custom_libcxx = false`), whose `value_or` is
+  `template <class _Up>` with no default, so a braced-init-list cannot
+  deduce `_Up`. Fixed systemically by defaulting `_Up = value_type` in the
+  merged sysroot + live prefix libc++ (`9999-sysroot-libcxx-value-or.diff`),
+  plus explicit value-type arguments at the remaining call sites
+  (`9997-gfx-value_or-fix.patch`,
+  `1022-chromium-gpu-raster-value_or-fix.patch`)
 - [ ] Triage remaining ninja failures to full electron link
-  - `net/cookies/cookie_util.cc` iterators (Termux libc++ = `__wrap_iter`)
-    fixed by `1021` — verified: build advanced to step 11776/80202.
-  - dawn's `-Xclang=-fno-lifetime-safety-*` flags rejected by the NDK
-    clang; fixed by the flag-filter probe, which now scans every
-    `BUILD.gn`/`*.gni` and unwraps `-Xclang=`/`-mllvm=` tokens into
-    whole-token deny entries (`build.sh`, `64c0b1f`) — verified in run
-    `37711204662`: build sailed past dawn to the harfbuzz step.
-  - bindgen (harfbuzz `hb_rs_generator`) called clang directly —
-    bypassing the `ndk-flag-filter` wrapper — with the unversioned
-    `--target=aarch64-linux-gnu`, so `__ANDROID_MIN_SDK_VERSION__`
-    was undefined and the merged sysroot's `sys/cdefs.h` `#error`d.
-    Fixed by `9999-sysroot-disable-target-check.diff`, applied over the
-    merged sysroot at construction time (`build.sh`) — verified in run
-    `37729925790`: the build passed bindgen and advanced 1h21m to step
-    14519/80202 (webrtc/viz/crashpad territory).
-  - Current blocker: `//third_party/node:check_version` — the running
-    node (v24.18.0, Termux's `node` symlinked in by the old electron-32
-    trick) must equal `update_node_binaries`'s pin (v24.12.0) or the
-    assert aborts the ninja graph. Fixed by adopting upstream electron42's
-    approach: download the chromium-pinned node binary via
-    `./third_party/node/update_node_binaries` + `update_npm_deps`
-    (`build.sh`). Self-consistent: the checker and downloader read the
-    same `update_node_binaries`.
+  - after the `value_or` fixes the build reached step ~14405/49076 in run
+    `38081599041`, still inside gpu/command_buffer
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
