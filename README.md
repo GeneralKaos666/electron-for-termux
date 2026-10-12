@@ -26,11 +26,16 @@ Active work: `tur-electron/electron-44/` (Electron 44.5.1 /
 Chromium 152). See the commit history for the porting progress
 (patch rebases, toolchain updates, CI fixes).
 
-The ninja graph is roughly 49k steps, and the build now presses well
-past `gpu/command_buffer` into `third_party/blink`. The latest
-completed run (`38115416504`) reached step ~1,711/18,024 in `build-5`
-before hitting the `XRRigidTransform` destructor issue below; the run
-validating that fix is currently in flight. Each push to
+The ninja graph is roughly 49k steps and the build presses well past
+`gpu/command_buffer` into `third_party/blink`. Run `38201485374`
+(`f02d2ce`, validating the `XRRigidTransform` fix) advanced past its
+predecessor's failure point — `build-1`…`build-3` succeeded — then
+died in `build-4`, not on a compile error but because upstream
+`termux-packages` `master` moved mid-run: commit `2db8bbc2a8`
+("parallelize xz compression") rewrote the two Debian-packaging scripts
+tur's building-system patch `0006` targets, so the patch no longer
+applied. A repo-local override of `0006` fixes it (see the checklist
+and Notes); the run validating it is in flight. Each push to
 `tur-electron/**` starts a CI build automatically.
 
 ## Build checklist
@@ -89,12 +94,24 @@ validating that fix is currently in flight. Each push to
   `1023-chromium-blink-xr-rigid-transform-incomplete-type.patch`
   moves the destructor out-of-line — declared in the header, defined
   `= default` in the `.cc` where `gfx::Transform` is complete
+- [x] Upstream `termux-packages` drift broke tur's building-system patch
+  `0006` mid-run: commit `2db8bbc2a8` ("parallelize xz compression")
+  rewrote the Debian-packaging scripts `0006` edits, and because every
+  CI job re-clones `master`, `build-4` merged the new scripts while
+  `prepare`/`build-1`…`build-3` had merged the old ones. Fixed by a
+  repo-local override at
+  `common-files/building-system-patches/0006-do-not-xz-when-debug.patch`
+  (this repo wins the `cp -rn` no-clobber merge; tur's other patches
+  still apply). It keeps upstream's new parallel default
+  (`XZ_OPT="-T$TERMUX_PKG_MAKE_PROCESSES"`) and tur's debug `-0`.
+  Verified locally against live `master` + `tur`: without the override
+  the exact CI rejects reproduce, with it all nine patches apply
 - [ ] Triage remaining ninja failures to full electron link
   - after the `value_or` fixes the build passed gpu/command_buffer;
-    run `38115416504` reached ~1,711/18,024 in `build-5`
-    (blink/modules/xr) before the `XRRigidTransform` dtor failure —
-    fixed by `1023` (`f02d2ce`), validating run `38201485374` in
-    flight
+    run `38201485374` advanced past `38115416504`'s failure point
+    (`XRRigidTransform`, fixed by `1023`/`f02d2ce`) into `build-4`,
+    where it stopped on the upstream-drift issue above rather than a
+    compile error
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
@@ -110,6 +127,12 @@ automatically. Only `aarch64` is built in CI.
   time; see `tur-electron/electron-44/build.sh`.
 - `setup-tur-electron-builder.sh` reproduces the CI source merge
   locally (termux-packages + tur + this repo).
+- CI merges `termux-packages` and `tur` at `master`, freshly in every
+  job, so an upstream change can break tur's building-system patches
+  mid-run. When that happens, vendor an adapted override under
+  `common-files/building-system-patches/` (same filename as the tur
+  patch): this repo is merged first and `cp -rn` never overwrites, so
+  the override wins while tur's other patches still apply.
 
 ## Known limitation: no resume across fix commits
 
