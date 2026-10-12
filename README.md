@@ -24,13 +24,18 @@ to carry the patch set forward to current Electron releases.
 
 Active work: `tur-electron/electron-44/` (Electron 44.5.1 /
 Chromium 152). See the commit history for the porting progress
-(patch rebases, toolchain updates, CI fixes). The build currently
-advances past step 14400/49076 (gpu/command_buffer territory); the
-hosted runner reports status on each push.
+(patch rebases, toolchain updates, CI fixes).
+
+The ninja graph is roughly 49k steps, and the build now presses well
+past `gpu/command_buffer` into `third_party/blink`. The latest
+completed run (`38115416504`) reached step ~1,711/18,024 in `build-5`
+before hitting the `XRRigidTransform` destructor issue below; the run
+validating that fix is currently in flight. Each push to
+`tur-electron/**` starts a CI build automatically.
 
 ## Build checklist
 
-- [x] 70 patch/diff files for electron-44, each verified with
+- [x] 71 patch/diff files for electron-44, each verified with
   `git apply --check` / `check-patch-hunks.py` before landing
 - [x] `gn gen` green (40016 targets)
 - [x] Fix `host/root_store_tool` loader assert
@@ -72,9 +77,24 @@ hosted runner reports status on each push.
   plus explicit value-type arguments at the remaining call sites
   (`9997-gfx-value_or-fix.patch`,
   `1022-chromium-gpu-raster-value_or-fix.patch`)
+- [x] `XRRigidTransform`'s inline `= default` destructor deleted an
+  incomplete `gfx::Transform` — the header only forward-declared
+  `gfx::Transform` but the class holds a
+  `std::unique_ptr<gfx::Transform>` member, so any translation unit
+  that destroyed one instantiated `unique_ptr`'s deleter against the
+  incomplete type (released libc++ rejects it with a `unique_ptr.h`
+  static_assert; this build died on `xr_cpu_depth_information.cc`).
+  Upstream ships the same code and only compiles because its toolchain
+  never instantiates the destructor inline, so the fix is local:
+  `1023-chromium-blink-xr-rigid-transform-incomplete-type.patch`
+  moves the destructor out-of-line — declared in the header, defined
+  `= default` in the `.cc` where `gfx::Transform` is complete
 - [ ] Triage remaining ninja failures to full electron link
-  - after the `value_or` fixes the build reached step ~14405/49076 in run
-    `38081599041`, still inside gpu/command_buffer
+  - after the `value_or` fixes the build passed gpu/command_buffer;
+    run `38115416504` reached ~1,711/18,024 in `build-5`
+    (blink/modules/xr) before the `XRRigidTransform` dtor failure —
+    fixed by `1023` (`f02d2ce`), validating run `38201485374` in
+    flight
 - [ ] Zip/deb artifacts produced, CI green
 
 ## Building
@@ -90,3 +110,20 @@ automatically. Only `aarch64` is built in CI.
   time; see `tur-electron/electron-44/build.sh`.
 - `setup-tur-electron-builder.sh` reproduces the CI source merge
   locally (termux-packages + tur + this repo).
+
+## Known limitation: no resume across fix commits
+
+A fix commit costs a fresh ~19h build. CI artifacts are keyed per
+commit (`build-status-*` / `build-deps-*`), and each job hard-fails
+if the exact artifact for its commit is missing, so a new commit has
+nothing to resume from — only re-runs *of the same commit* pick up
+the saved build state (via `build-package.sh -c`, which skips patch
+application).
+
+Planned improvement (not yet implemented): on a fresh commit, fall
+back to the newest prior-commit build-status/build-deps artifact, and
+re-apply the `tur-electron/electron-44/*.patch` set idempotently
+before the ninja step so ninja rebuilds only the touched files and
+their dependents instead of the whole graph. Caveats: config /
+sysroot / toolchain changes still need a fresh run, and a patch
+touching a widely-included header would cascade.
