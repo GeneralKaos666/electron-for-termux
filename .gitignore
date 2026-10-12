@@ -7,6 +7,8 @@
 !README.md
 !repo.json
 !setup-tur-electron-builder.sh
+!common-files
+!common-files/**
 !tur-electron
 !tur-electron/**
 !tur-electron-2
