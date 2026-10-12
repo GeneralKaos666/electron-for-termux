@@ -1,0 +1,32 @@
+diff --git a/third_party/blink/renderer/modules/xr/xr_rigid_transform.cc b/third_party/blink/renderer/modules/xr/xr_rigid_transform.cc
+index d0a8cc6..23d0eed 100644
+--- a/third_party/blink/renderer/modules/xr/xr_rigid_transform.cc
++++ b/third_party/blink/renderer/modules/xr/xr_rigid_transform.cc
+@@ -64,6 +64,14 @@ XRRigidTransform::XRRigidTransform(DOMPointInit* position,
+   // so compute it lazily in matrix().
+ }
+ 
++// Defined out-of-line so the defaulted destructor is instantiated here,
++// where ui/gfx/geometry/transform.h makes gfx::Transform complete. The
++// header only forward-declares it, and an inline `= default` destructor
++// would delete the incomplete type in any TU that instantiates it (visible
++// with released libc++: unique_ptr.h static_assert 'cannot delete an
++// incomplete type', e.g. xr_cpu_depth_information.cc).
++XRRigidTransform::~XRRigidTransform() = default;
++
+ XRRigidTransform* XRRigidTransform::Create(DOMPointInit* position,
+                                            DOMPointInit* orientation,
+                                            ExceptionState& exception_state) {
+diff --git a/third_party/blink/renderer/modules/xr/xr_rigid_transform.h b/third_party/blink/renderer/modules/xr/xr_rigid_transform.h
+index 0049b98..26f7475 100644
+--- a/third_party/blink/renderer/modules/xr/xr_rigid_transform.h
++++ b/third_party/blink/renderer/modules/xr/xr_rigid_transform.h
+@@ -37,7 +37,7 @@ class MODULES_EXPORT XRRigidTransform : public ScriptWrappable {
+   XRRigidTransform(const XRRigidTransform&) = delete;
+   XRRigidTransform& operator=(const XRRigidTransform&) = delete;
+ 
+-  ~XRRigidTransform() override = default;
++  ~XRRigidTransform() override;
+ 
+   DOMPointReadOnly* position() const { return position_.Get(); }
+   DOMPointReadOnly* orientation() const { return orientation_.Get(); }
