@@ -29,14 +29,19 @@ Chromium 152). See the commit history for the porting progress
 The ninja graph is roughly 49k steps and the build presses well past
 `gpu/command_buffer` into `third_party/blink`. Run `38201485374`
 (`f02d2ce`, validating the `XRRigidTransform` fix) advanced past its
-predecessor's failure point — `build-1`…`build-3` succeeded — then
-died in `build-4`, not on a compile error but because upstream
-`termux-packages` `master` moved mid-run: commit `2db8bbc2a8`
+predecessor's failure point — `build-1`…`build-3` succeeded (~14.6 h
+in) — then died in `build-4`, not on a compile error but because
+upstream `termux-packages` `master` moved mid-run: commit `2db8bbc2a8`
 ("parallelize xz compression") rewrote the two Debian-packaging scripts
 tur's building-system patch `0006` targets, so the patch no longer
-applied. A repo-local override of `0006` fixes it (see the checklist
-and Notes); the run validating it is in flight. Each push to
-`tur-electron/**` starts a CI build automatically.
+applied. A repo-local override of `0006` fixed it (see the checklist
+and Notes). The validation run (`38296521259`) then hit an infra
+flake: the hosted runner lost contact with the server during the
+15 GB "Upload build deps" step, so nothing was uploaded. Because the
+lineage now resumes across commits, the next dispatch picks up from
+`f02d2ce`'s saved state instead of a fresh ~19 h build (see the
+resume section below). Each push to `tur-electron/**` starts a CI
+build automatically.
 
 ## Build checklist
 
@@ -134,19 +139,25 @@ automatically. Only `aarch64` is built in CI.
   patch): this repo is merged first and `cp -rn` never overwrites, so
   the override wins while tur's other patches still apply.
 
-## Known limitation: no resume across fix commits
+## Resume: CI builds continue across fix commits
 
-A fix commit costs a fresh ~19h build. CI artifacts are keyed per
-commit (`build-status-*` / `build-deps-*`), and each job hard-fails
-if the exact artifact for its commit is missing, so a new commit has
-nothing to resume from — only re-runs *of the same commit* pick up
-the saved build state (via `build-package.sh -c`, which skips patch
-application).
+Builds no longer restart from zero on every fix commit. `prepare`
+looks up the newest `build-deps-<arch>-<sha>` / `build-status-<arch>-<sha>`
+artifact pair (`common-files/tur-continuous-resume.sh`) and, when one
+exists, seeds its sandbox from that state and runs `build-package.sh -c`
+(`TUR_CONTINUOUS_FLAG=true`) instead of starting a fresh ~19 h lineage.
+The same deps tarball is forwarded under the new commit's sha so
+`build-1`…`build-7` continue unchanged, each adding another ~200 min
+slice to the same ninja graph.
 
-Planned improvement (not yet implemented): on a fresh commit, fall
-back to the newest prior-commit build-status/build-deps artifact, and
-re-apply the `tur-electron/electron-44/*.patch` set idempotently
-before the ninja step so ninja rebuilds only the touched files and
-their dependents instead of the whole graph. Caveats: config /
-sysroot / toolchain changes still need a fresh run, and a patch
-touching a widely-included header would cascade.
+Resuming reuses the artifact source tree as-is. If a fix commit
+changed any `tur-electron/electron-44/*.patch`, `build.sh` verifies
+on resume that the tree still matches (reverse dry-run of every
+patch) and **fails loudly** if it does not — it never silently builds
+stale sources. Artifacts whose commit predates a patch change need a
+fresh run (delete the old artifacts).
+
+Caveats: config / sysroot / toolchain changes still want a fresh
+run, chromium third_party patches only change on a version bump
+(full rebuild anyway), and resume assumes the electron-44 lineage
+(dispatch `packages=electron-44`).
