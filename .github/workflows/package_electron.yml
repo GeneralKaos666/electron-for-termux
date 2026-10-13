@@ -196,6 +196,9 @@ jobs:
     # only patches that changed since then cause a rebuild.
     - name: Select resumable build state (if any)
       id: find
+      env:
+        # gh only trusts GH_TOKEN (not GITHUB_TOKEN) for API auth on runners.
+        GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         ./common-files/tur-continuous-resume.sh select "${{ matrix.target_arch }}" >>"$GITHUB_OUTPUT"
