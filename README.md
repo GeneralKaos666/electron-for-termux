@@ -109,6 +109,17 @@ build automatically.
   `1023-chromium-blink-xr-rigid-transform-incomplete-type.patch`
   moves the destructor out-of-line — declared in the header, defined
   `= default` in the `.cc` where `gfx::Transform` is complete
+- [x] `mojo::CloneTraits<std::vector<bool>>` static assert — released
+  libc++ defines `std::vector<bool>::const_reference` as the
+  `__bit_const_reference` proxy (Chromium's bundled libc++ builds it as
+  `bool` via `_LIBCPP_ABI_BITSET_VECTOR_BOOL_CONST_SUBSCRIPT_RETURN_BOOL`),
+  so the `const auto& element` loop in `CloneTraits<std::vector<T>>` binds a
+  non-copyable proxy and `mojo::Clone` hits its "T is not copyable and has
+  no Clone() method" static_assert; the build died on
+  `content/browser/webid/document_metadata.cc` via the generated
+  `components/schema_org/common/metadata.mojom.h`. `termux_step_configure`
+  rewrites the loop to `const T&` (idempotent; the original mtime is
+  restored so ninja does not rebuild every mojom-dependent object)
 - [x] Upstream `termux-packages` drift broke tur's building-system patch
   `0006` mid-run: commit `2db8bbc2a8` ("parallelize xz compression")
   rewrote the Debian-packaging scripts `0006` edits, and because every
@@ -185,3 +196,11 @@ gen-dir copy survives in `build-status`, ninja skips the action, the
 repo-root copy is never rewritten, and every webpack bundle fails with
 `TS2307`/`TS2694`. `termux_step_make` deletes the stale gen-dir output
 when the repo-root copy is absent, forcing both to regenerate.
+
+The same frozen-tree rule applies to source rewrites: a fix that must not be
+carried as a new `*.patch` (which would trip the reverse-dry-run check above
+and force a fresh lineage) is re-applied in `termux_step_configure`, which runs
+on both fresh and continued builds. The `std::vector<bool>`
+`mojo::CloneTraits` rewrite is done this way, with the file's original mtime
+restored so ninja does not treat the header as changed and rebuild every
+mojom-dependent object.

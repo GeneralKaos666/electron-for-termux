@@ -498,6 +498,31 @@ termux_step_configure() {
 		perl -0pi -e 's/template <class _Up>\n(  _LIBCPP_HIDE_FROM_ABI constexpr value_type value_or\(_Up&& __v\))/template <class _Up = value_type>\n$1/g' "$TERMUX_PREFIX/include/c++/v1/optional"
 	fi
 
+	# The NDK's released libc++ defines std::vector<bool>::const_reference as
+	# the __bit_const_reference proxy; libc++ only returns bool when built with
+	# _LIBCPP_ABI_BITSET_VECTOR_BOOL_CONST_SUBSCRIPT_RETURN_BOOL, which
+	# Chromium's bundled libc++ sets and the NDK's does not. Chromium's
+	# mojo::CloneTraits<std::vector<T>> iterates with `const auto& element`,
+	# so cloning a std::vector<bool> binds that proxy and trips the
+	# CloneTraits static_assert ("T is not copyable and has no Clone()
+	# method"), which fails content/browser/webid/document_metadata.cc through
+	# the generated components/schema_org/common/metadata.mojom.h. Bind the
+	# element as `const T&` so the proxy converts to a value_type temporary
+	# that CloneTraits<bool> can clone. Rewritten here, idempotently, rather
+	# than as a *.patch: a new patch trips __tur_resume_verify_patches and
+	# forces a ~19 h rebuild, while this runs on both fresh and continued
+	# builds. Restore the original mtime so ninja does not rebuild every
+	# mojom-dependent object (the change only affects std::vector<bool>).
+	local _clone_traits="$TERMUX_PKG_SRCDIR/mojo/public/cpp/bindings/clone_traits.h"
+	if [ -f "$_clone_traits" ]; then
+		local _clone_mtime
+		_clone_mtime=$(stat -c %Y "$_clone_traits" 2>/dev/null || echo 0)
+		perl -0pi -e 's/(result\.reserve\(input\.size\(\)\);\n\s*)for \(const auto& element : input\)/${1}for (const T& element : input)/' "$_clone_traits"
+		if [ "$_clone_mtime" != "0" ]; then
+			touch -d "@$_clone_mtime" "$_clone_traits" 2>/dev/null || true
+		fi
+	fi
+
 	# Construct args
 	local _clang_base_path="$PWD/third_party/llvm-build/Release+Asserts"
 	local _host_cc="$_clang_base_path/bin/clang"
