@@ -208,6 +208,9 @@ jobs:
       with:
         name: build-deps-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
         path: ./resume-deps
+        # github-token is required for a cross-run download; without it the
+        # action ignores run-id and only looks in the current run.
+        github-token: ${{ github.token }}
         run-id: ${{ steps.find.outputs.resume_deps_run }}
     - name: Download resume build status
       if: steps.find.outputs.resume_sha != ''
@@ -215,6 +218,7 @@ jobs:
       with:
         name: build-status-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
         path: ./resume-status
+        github-token: ${{ github.token }}
         run-id: ${{ steps.find.outputs.resume_status_run }}
     - name: Seed resumed build state
       if: steps.find.outputs.resume_sha != ''
