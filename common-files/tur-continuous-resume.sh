@@ -21,6 +21,8 @@
 # Prints nothing (exit 0) when no resumable pair exists, otherwise:
 #   resume_sha=<40-hex sha>
 #   resume_time=<ISO-8601 created_at of the newest artifact in the pair>
+#   resume_deps_run=<run id owning build-deps for that sha>
+#   resume_status_run=<run id owning build-status for that sha>
 set -euo pipefail
 
 cmd="${1:-}"
@@ -37,19 +39,21 @@ trap 'rm -f "$tmp"' EXIT
 
 # Collect every continuous-build artifact for this arch. per_page=100 covers
 # dozens of rounds; the newest pair (what we want) is always on this page.
+# The owning run ids are read too: download-artifact@v4 defaults to the current
+# run and would not find artifacts owned by an older one.
 gh api "/repos/${repo}/actions/artifacts?per_page=100" \
-	--jq '.artifacts[] | select(.name | test("^build-(deps|status)-'"${arch}"'-[0-9a-f]{40}$")) | [.name, .created_at] | @tsv' \
+	--jq '.artifacts[] | select(.name | test("^build-(deps|status)-'"${arch}"'-[0-9a-f]{40}$")) | [.name, .created_at, (.workflow_run.id | tostring)] | @tsv' \
 	>"$tmp"
 
 awk -F '\t' -v arch="$arch" '
 	{
-		name = $1; created = $2
+		name = $1; created = $2; run = $3
 		if (name ~ "^build-deps-" arch "-[0-9a-f]{40}$") {
 			sha = name; sub("^build-deps-" arch "-", "", sha)
-			if (!(sha in dep) || created > dep[sha]) dep[sha] = created
+			if (!(sha in dep) || created > dep[sha]) { dep[sha] = created; dep_run[sha] = run }
 		} else if (name ~ "^build-status-" arch "-[0-9a-f]{40}$") {
 			sha = name; sub("^build-status-" arch "-", "", sha)
-			if (!(sha in st) || created > st[sha]) st[sha] = created
+			if (!(sha in st) || created > st[sha]) { st[sha] = created; st_run[sha] = run }
 		}
 	}
 	END {
@@ -62,6 +66,8 @@ awk -F '\t' -v arch="$arch" '
 		if (best != "") {
 			print "resume_sha=" best
 			print "resume_time=" best_time
+			print "resume_deps_run=" dep_run[best]
+			print "resume_status_run=" st_run[best]
 		}
 	}
 ' "$tmp"
