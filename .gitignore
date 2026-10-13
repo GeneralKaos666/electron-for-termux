@@ -13,3 +13,6 @@
 !tur-electron/**
 !tur-electron-2
 !tur-electron-2/**
+
+# Local-only DT_RELACOUNT debugging helper, not part of the build.
+tur-electron/electron-44/check_relacount.py
