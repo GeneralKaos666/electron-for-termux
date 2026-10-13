@@ -26,6 +26,16 @@ Active work: `tur-electron/electron-44/` (Electron 44.5.1 /
 Chromium 152). See the commit history for the porting progress
 (patch rebases, toolchain updates, CI fixes).
 
+The cross-commit resume path is now proven end to end. Run
+`38331806275` resumed `prepare` from `f02d2ce` (≈14.6 h in) and ran a
+full slice, then `build-1` stopped on a real compile error:
+Chromium 152 removed `NOTIMPLEMENTED_LOG_ONCE()` from
+`base/notreached.h`, but the dummy HID service patch (`1019`) still
+called it. `1019` now uses the replacement `DUMP_WILL_BE_NOTREACHED()`,
+and an idempotent heal in `build.sh` rewrites the old call in a seeded
+tree before resume validation — so the next round continues from
+`28315ca`'s slice instead of rebuilding from zero.
+
 The ninja graph is roughly 49k steps and the build presses well past
 `gpu/command_buffer` into `third_party/blink`. Run `38201485374`
 (`f02d2ce`, validating the `XRRigidTransform` fix) advanced past its
@@ -154,8 +164,11 @@ Resuming reuses the artifact source tree as-is. If a fix commit
 changed any `tur-electron/electron-44/*.patch`, `build.sh` verifies
 on resume that the tree still matches (reverse dry-run of every
 patch) and **fails loudly** if it does not — it never silently builds
-stale sources. Artifacts whose commit predates a patch change need a
-fresh run (delete the old artifacts).
+stale sources. A drift `build.sh` can rewrite deterministically is
+healed in place first, so the affected resume point stays usable:
+`__tur_resume_heal_known_drift` retargets the pre-152
+`NOTIMPLEMENTED_LOG_ONCE()` call in the dummy HID service. Any other
+patch change needs a fresh run (delete the old artifacts).
 
 Caveats: config / sysroot / toolchain changes still want a fresh
 run, chromium third_party patches only change on a version bump

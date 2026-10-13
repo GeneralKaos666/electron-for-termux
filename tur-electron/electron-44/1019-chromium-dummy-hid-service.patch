@@ -26,7 +26,7 @@
 +               bool allow_fido_reports,
 +               ConnectCallback callback) override {
 +    // TODO(https://crbug.com/1311019): Implement this.
-+    NOTIMPLEMENTED_LOG_ONCE();
++    DUMP_WILL_BE_NOTREACHED();
 +    std::move(callback).Run(nullptr);
 +  }
 +  base::WeakPtr<HidService> GetWeakPtr() override {

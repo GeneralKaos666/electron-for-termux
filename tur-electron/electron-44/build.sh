@@ -202,6 +202,26 @@ __tur_resume_verify_patches() {
 	echo "[INFO]: resumed build: source tree matches this commit's patches."
 }
 
+# Heal a resumed build whose artifact source tree predates a patch edit carried
+# by this commit. Unlike a full patch change (which correctly aborts the resume
+# in __tur_resume_verify_patches and demands a fresh lineage), a drift we can
+# rewrite deterministically and idempotently stays resumable: the ~19 h build
+# is preserved instead of restarted.
+#
+# Current known drift: Chromium 152 removed NOTIMPLEMENTED_LOG_ONCE() from
+# base/notreached.h. Patch 1019 (shared with v32) used to call it in the dummy
+# HID service and now calls DUMP_WILL_BE_NOTREACHED(); a tree seeded from before
+# that edit still has the old call, which would both fail to compile and fail
+# the reverse-dry-run validation. Rewrite it in place before verifying so the
+# pre-edit resume point still matches the current patch. Add a case per drift.
+__tur_resume_heal_known_drift() {
+	local _hid="$TERMUX_PKG_SRCDIR/services/device/hid/hid_service.cc"
+	if [ -f "$_hid" ] && grep -q 'NOTIMPLEMENTED_LOG_ONCE()' "$_hid"; then
+		echo "[INFO]: resumed build: healing pre-152 hid_service.cc (NOTIMPLEMENTED_LOG_ONCE -> DUMP_WILL_BE_NOTREACHED)"
+		sed -i 's/NOTIMPLEMENTED_LOG_ONCE()/DUMP_WILL_BE_NOTREACHED()/' "$_hid"
+	fi
+}
+
 # Termux's bionic toolchain setup exports GOOS=android/GOARCH=<target>, which
 # is right for Go programs built for the target but wrong for the build-time
 # HOST tools Chromium compiles.  The dawn/tint targets run
@@ -222,6 +242,9 @@ termux_step_configure() {
 	if [ "${TERMUX_CONTINUE_BUILD:-false}" = "true" ]; then
 		# build-package.sh -c skips termux_step_patch_package; make sure the
 		# artifact's source tree still matches this commit before ninja runs.
+		# Heal deterministic drift first so a pre-edit resume point still
+		# validates against this commit's patches.
+		__tur_resume_heal_known_drift
 		__tur_resume_verify_patches
 	fi
 	termux_setup_ninja
