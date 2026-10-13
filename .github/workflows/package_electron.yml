@@ -208,12 +208,14 @@ jobs:
       with:
         name: build-deps-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
         path: ./resume-deps
+        run-id: 0 # resume artifacts live in an older run
     - name: Download resume build status
       if: steps.find.outputs.resume_sha != ''
       uses: actions/download-artifact@v4
       with:
         name: build-status-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
         path: ./resume-status
+        run-id: 0 # resume artifacts live in an older run
     - name: Seed resumed build state
       if: steps.find.outputs.resume_sha != ''
       run: |
