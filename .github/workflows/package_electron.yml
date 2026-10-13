@@ -189,8 +189,55 @@ jobs:
         if [ ! -z "$package_recipes" ]; then
           ./scripts/lint-packages.sh $package_recipes
         fi
-    - name: Build packages
+    # Rather than always starting a fresh ~19 h lineage, prepare() may pick up
+    # from the newest coherent build-deps/build-status artifact pair left by a
+    # previous round (keyed by arch+sha, e.g. f02d2ce...). Seeding from that
+    # state and building with -c continues the ninja build where it stopped;
+    # only patches that changed since then cause a rebuild.
+    - name: Select resumable build state (if any)
+      id: find
       run: |
+        set -euo pipefail
+        ./common-files/tur-continuous-resume.sh select "${{ matrix.target_arch }}" >>"$GITHUB_OUTPUT"
+    - name: Download resume build deps
+      if: steps.find.outputs.resume_sha != ''
+      uses: actions/download-artifact@v4
+      with:
+        name: build-deps-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
+        path: ./resume-deps
+    - name: Download resume build status
+      if: steps.find.outputs.resume_sha != ''
+      uses: actions/download-artifact@v4
+      with:
+        name: build-status-${{ matrix.target_arch }}-${{ steps.find.outputs.resume_sha }}
+        path: ./resume-status
+    - name: Seed resumed build state
+      if: steps.find.outputs.resume_sha != ''
+      run: |
+        set -euo pipefail
+        arch="${{ matrix.target_arch }}"
+        resume_sha="${{ steps.find.outputs.resume_sha }}"
+        echo "Resuming electron-44 from sha ${resume_sha} (state as of ${{ steps.find.outputs.resume_time }})"
+        mkdir -p ./build-deps ./build-status ./passthrough-deps
+        # Keep a copy the wrapper will not delete, so this run can forward the
+        # same deps tarball under the new commit sha for build-1..7.
+        cp ./resume-deps/tur-continuous-deps.tar.zst ./passthrough-deps/tur-continuous-deps.tar.zst
+        # Seed what the continuous wrapper extracts into the builder.
+        cp ./resume-deps/tur-continuous-deps.tar.zst ./build-deps/tur-continuous-deps.tar.zst
+        cp ./resume-status/tur-continuous-status.tar.zst ./build-status/tur-continuous-status.tar.zst
+        cp ./resume-status/tur-continuous-finished-flag ./build-status/tur-continuous-finished-flag
+        # Restore the accumulated .txt lists and debs/artifacts/output dirs.
+        tar xf ./resume-status/${arch}-${resume_sha}.tar
+        # Free the ~15 GB download before the next slice runs.
+        rm -rf ./resume-deps ./resume-status
+    - name: Build packages
+      env:
+        TUR_CONTINUOUS_FLAG: ${{ steps.find.outputs.resume_sha != '' && 'true' || 'false' }}
+      run: |
+        if [ "$(cat ./build-status/tur-continuous-finished-flag 2>/dev/null || echo false)" = "true" ]; then
+          echo "Build already finished in a previous run; nothing to do."
+          exit 0
+        fi
         declare -a packages
         for repo_path in $(jq --raw-output 'keys | .[]' repo.json); do
           repo=$(jq --raw-output '.["'${repo_path}'"].name' repo.json)
@@ -204,6 +251,13 @@ jobs:
     - name: Generate build status and build deps
       run: |
         tar cf build-status/${{ matrix.target_arch }}-${{ github.sha }}.tar ./*.txt ./debs ./artifacts ./output ./output-electron
+    - name: Forward resumed build deps
+      if: steps.find.outputs.resume_sha != ''
+      run: |
+        # The continuous wrapper deletes the deps tarball after extracting it,
+        # so restore the passthrough copy for build-1's download step.
+        cp ./passthrough-deps/tur-continuous-deps.tar.zst ./build-deps/tur-continuous-deps.tar.zst
+        rm -rf ./passthrough-deps
     - name: Upload build deps
       uses: actions/upload-artifact@v4
       with:

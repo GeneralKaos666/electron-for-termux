@@ -165,6 +165,43 @@ termux_step_patch_package() {
 	shopt -u nullglob
 }
 
+__tur_resume_verify_patches() {
+	# A resumed build (-c) skips termux_step_patch_package, so it reuses the
+	# source tree that the artifact lineage applied. If this commit changed
+	# any *.patch file, that tree is stale: ninja would silently keep building
+	# old sources. Verify each patch we would apply is already applied by
+	# dry-running its reverse; fail loudly instead of building on a stale tree.
+	# (Chromium third_party patches only change with a version bump, which is a
+	# full-rebuild case and out of scope for resume.)
+	cd "$TERMUX_PKG_SRCDIR"
+	local _patches=$(find "$TERMUX_PKG_BUILDER_DIR" -mindepth 1 -maxdepth 1 \
+		\( -name \*.patch -o -name \*.patch$TERMUX_ARCH_BITS \) | sort)
+	if [ "$TERMUX_DEBUG_BUILD" = "true" ]; then
+		_patches="$_patches $(find "$TERMUX_PKG_BUILDER_DIR" -mindepth 1 -maxdepth 1 -name \*.patch.debug | sort)"
+	fi
+	if [ "$TERMUX_ON_DEVICE_BUILD" = "true" ]; then
+		_patches="$_patches $(find "$TERMUX_PKG_BUILDER_DIR" -mindepth 1 -maxdepth 1 -name \*.patch.ondevice | sort)"
+	fi
+	local _patch _sed _rc
+	shopt -s nullglob
+	for _patch in $_patches; do
+		[ -f "$_patch" ] || continue
+		_sed="$TERMUX_PKG_TMPDIR/resume-verify-$(basename "$_patch")"
+		__tur_patch_expand "$_patch" >"$_sed"
+		_rc=0
+		patch -f --batch --dry-run -R -p1 -d "$TERMUX_PKG_SRCDIR" <"$_sed" >/dev/null 2>&1 || _rc=$?
+		rm -f "$_sed"
+		if [ "$_rc" -ne 0 ]; then
+			echo "[ERROR]: resumed build: $(basename "$_patch") is not applied to the artifact source tree." >&2
+			echo "[ERROR]: The resume point (older commit) predates this commit's patches." >&2
+			echo "[ERROR]: Force a fresh build (delete the build-deps/build-status artifacts) instead of resuming." >&2
+			exit 1
+		fi
+	done
+	shopt -u nullglob
+	echo "[INFO]: resumed build: source tree matches this commit's patches."
+}
+
 # Termux's bionic toolchain setup exports GOOS=android/GOARCH=<target>, which
 # is right for Go programs built for the target but wrong for the build-time
 # HOST tools Chromium compiles.  The dawn/tint targets run
@@ -182,6 +219,11 @@ termux_step_pre_configure() {
 
 termux_step_configure() {
 	cd $TERMUX_PKG_SRCDIR
+	if [ "${TERMUX_CONTINUE_BUILD:-false}" = "true" ]; then
+		# build-package.sh -c skips termux_step_patch_package; make sure the
+		# artifact's source tree still matches this commit before ninja runs.
+		__tur_resume_verify_patches
+	fi
 	termux_setup_ninja
 	termux_setup_nodejs
 	__tur_setup_depot_tools
