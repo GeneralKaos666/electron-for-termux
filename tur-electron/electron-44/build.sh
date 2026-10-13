@@ -656,6 +656,25 @@ termux_step_make() {
 	# note at termux_step_pre_configure.
 	unset GOOS GOARCH GOARM
 	cd $TERMUX_PKG_BUILDDIR
+
+	# The continuous wrapper persists only the build dir (the chromium out
+	# tree) between slices; the source tree is restored from the frozen
+	# build-deps tarball.  //electron:build_electron_definitions declares only
+	# its gen-dir copy of electron.d.ts as an output, but it also writes the
+	# repo-root copy that typings/internal-electron.d.ts pulls in via
+	# /// <reference>.  The gen-dir copy survives in out/, so ninja skips the
+	# action and the undeclared repo-root copy is never rewritten; every
+	# resumed slice then hands ts-loader a tree with no electron.d.ts and the
+	# webpack bundles fail with TS2307 (Cannot find module 'electron/main')
+	# and TS2694 (namespace 'Electron' has no exported member ...).  Drop the
+	# stale gen-dir output when the repo-root copy is gone so ninja
+	# regenerates both.
+	local _electron_dts="$TERMUX_PKG_SRCDIR/electron/electron.d.ts"
+	if [ ! -s "$_electron_dts" ]; then
+		echo "[INFO]: electron.d.ts missing (resume drops the source tree); forcing build_electron_definitions to re-run"
+		find "$TERMUX_PKG_BUILDDIR/out" -type f \
+			-path '*/gen/electron/tsc/typings/electron.d.ts' -delete 2>/dev/null || true
+	fi
 	# depot_tools' ninja.py wrapper aborts with "Could not find checkout"
 	# because our build dir is a sibling of src, so resolve the real ninja
 	# binary that termux_setup_ninja installed with depot_tools off PATH.

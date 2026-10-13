@@ -174,3 +174,14 @@ Caveats: config / sysroot / toolchain changes still want a fresh
 run, chromium third_party patches only change on a version bump
 (full rebuild anyway), and resume assumes the electron-44 lineage
 (dispatch `packages=electron-44`).
+
+A resumed slice persists only the chromium `build` tree (via
+`build-status`); the source tree comes back from the frozen `build-deps`
+tarball, so anything the build writes into it is lost on the next slice.
+Ninja recreates declared outputs, but `//electron:build_electron_definitions`
+declares only its gen-dir copy of `electron.d.ts` while
+`typings/internal-electron.d.ts` references the repo-root copy. Once the
+gen-dir copy survives in `build-status`, ninja skips the action, the
+repo-root copy is never rewritten, and every webpack bundle fails with
+`TS2307`/`TS2694`. `termux_step_make` deletes the stale gen-dir output
+when the repo-root copy is absent, forcing both to regenerate.
