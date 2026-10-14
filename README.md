@@ -120,6 +120,19 @@ build automatically.
   `components/schema_org/common/metadata.mojom.h`. `termux_step_configure`
   rewrites the loop to `const T&` (idempotent; the original mtime is
   restored so ninja does not rebuild every mojom-dependent object)
+- [x] `//third_party/electron_node:generate_config_gypi` ran `gn args
+  --list --short -C .` and failed. The build dir
+  (`$TERMUX_PKG_BUILDDIR/out/Release`) is a sibling of the source tree, so
+  no ancestor of it holds `.gn`; without `--root` gn resolves the source
+  root by walking up from the *current* directory
+  (`Setup::FillSourceDir`) and aborts with "Can't find source root." when
+  cwd is the build dir. ninja runs every action from there, so the action
+  died — and because gn prints that message to *stdout*, the action's
+  `check_output` swallowed it. `__tur_setup_depot_tools` now shadows `gn`
+  with a wrapper that injects `--root=$TERMUX_PKG_SRCDIR` unless the
+  command already carries one (gn's own regeneration uses exactly
+  `gn gen . --root=<root>` from the build dir). The real depot_tools gn is
+  invoked by absolute path, so there is no recursion
 - [x] Upstream `termux-packages` drift broke tur's building-system patch
   `0006` mid-run: commit `2db8bbc2a8` ("parallelize xz compression")
   rewrote the Debian-packaging scripts `0006` edits, and because every
