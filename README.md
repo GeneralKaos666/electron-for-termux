@@ -133,6 +133,22 @@ build automatically.
   command already carries one (gn's own regeneration uses exactly
   `gn gen . --root=<root>` from the build dir). The real depot_tools gn is
   invoked by absolute path, so there is no recursion
+- [x] `//third_party/electron_node:node_js2c_original_fs` ran electron's
+  `script/node/generate_original_fs.py`, which hardcodes
+  `NODE_ROOT_DIR = "../../third_party/electron_node"` and lets Python
+  resolve it against the *current directory*. Normal Electron builds run
+  ninja actions from `<src>/out/Release`, where `../../` is `<src>`, but
+  this repo builds from `$TERMUX_PKG_BUILDDIR/out/Release`, a sibling of
+  the source tree, where `../../` is the build dir — so the action died
+  with `FileNotFoundError` on `lib/internal/fs/cp/cp-sync.js` and ninja
+  stopped (the earlier gn `--root` fix, by contrast, held). This is the
+  same cwd assumption the `gn` action made. `termux_step_configure` now
+  rewrites `NODE_ROOT_DIR` to be anchored to the script's own location —
+  the technique upstream already uses in the sibling
+  `script/node/generate_node_headers.py`
+  (`SRC_DIR = Path(__file__).parents[3]`) — idempotently and with the
+  original mtime restored so ninja does not re-run the action once its
+  outputs exist
 - [x] Upstream `termux-packages` drift broke tur's building-system patch
   `0006` mid-run: commit `2db8bbc2a8` ("parallelize xz compression")
   rewrote the Debian-packaging scripts `0006` edits, and because every

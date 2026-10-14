@@ -555,6 +555,30 @@ termux_step_configure() {
 		fi
 	fi
 
+	# electron/script/node/generate_original_fs.py (the
+	# //third_party/electron_node:node_js2c_original_fs action) hardcodes
+	# NODE_ROOT_DIR = "../../third_party/electron_node", which Python resolves
+	# against the *current directory*. Normal Electron builds run ninja
+	# actions from <src>/out/Release, where ../../ = <src>; Termux builds from
+	# $TERMUX_PKG_BUILDDIR/out/Release, a sibling of the source tree, where
+	# ../../ = the build dir - so the action dies with FileNotFoundError and
+	# ninja stops. Re-anchor NODE_ROOT_DIR to the script's own location, the
+	# same technique upstream already uses in the sibling
+	# script/node/generate_node_headers.py (SRC_DIR = Path(__file__).parents[3]).
+	# Rewritten here, idempotently, rather than as a *.patch: a new patch trips
+	# __tur_resume_verify_patches and forces a ~19 h rebuild, while this runs on
+	# both fresh and continued builds. The original mtime is restored so ninja
+	# does not re-run the action once its outputs exist.
+	local _orig_fs="$TERMUX_PKG_SRCDIR/electron/script/node/generate_original_fs.py"
+	if [ -f "$_orig_fs" ]; then
+		local _orig_fs_mtime
+		_orig_fs_mtime=$(stat -c %Y "$_orig_fs" 2>/dev/null || echo 0)
+		perl -0pi -e 's{^NODE_ROOT_DIR = "\.\./\.\./third_party/electron_node"$}{NODE_ROOT_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../third_party/electron_node"))}m' "$_orig_fs"
+		if [ "$_orig_fs_mtime" != "0" ]; then
+			touch -d "@$_orig_fs_mtime" "$_orig_fs" 2>/dev/null || true
+		fi
+	fi
+
 	# Construct args
 	local _clang_base_path="$PWD/third_party/llvm-build/Release+Asserts"
 	local _host_cc="$_clang_base_path/bin/clang"
